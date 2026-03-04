@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>R1 Scroll Reader</title>
+  <title>R1 News Fetcher</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
-        <div class="brand">R1 Scroll Reader</div>
-        <div class="sub">Practical web reading for Rabbit R1</div>
+        <div class="brand">R1 News Fetcher</div>
+        <div class="sub">Headline cards + wheel swipe for Rabbit R1</div>
       </div>
       <div class="actions">
         <button id="voiceBtn" class="btn">🎙 Voice</button>
@@ -20,17 +20,17 @@
     </header>
 
     <section class="controls card">
-      <label for="urlInput">Website URL</label>
+      <label for="urlInput">News source URL</label>
       <div class="row">
-        <input id="urlInput" type="url" placeholder="bbc.com or https://example.com/article" />
+        <input id="urlInput" type="url" placeholder="bbc.com, cnn.com, theguardian.com" />
         <button id="previewBtn" class="btn">Preview</button>
-        <button id="readBtn" class="btn btn-primary">Read</button>
+        <button id="fetchNewsBtn" class="btn btn-primary">Fetch News</button>
       </div>
 
-      <label for="searchInput">Search the web</label>
+      <label for="searchInput">News search</label>
       <div class="row">
-        <input id="searchInput" type="text" placeholder="Type a topic and press Go" />
-        <button id="searchBtn" class="btn">Go</button>
+        <input id="searchInput" type="text" placeholder="e.g. AI regulation UK" />
+        <button id="searchBtn" class="btn">Search News</button>
       </div>
     </section>
 
@@ -40,10 +40,16 @@
       <div class="full-url"><strong>URL:</strong> <span id="previewUrl">-</span></div>
       <div><strong>Safety:</strong> <span id="previewSafety" class="badge">Unknown</span></div>
       <div class="row top-gap">
-        <button id="openPreviewBtn" class="btn btn-primary">Open</button>
+        <button id="openPreviewBtn" class="btn btn-primary">Fetch from this source</button>
         <button id="cancelPreviewBtn" class="btn">Cancel</button>
         <button id="rescanPreviewBtn" class="btn">Rescan</button>
       </div>
+    </section>
+
+    <section id="newsDeckSection" class="card hidden">
+      <h3>Top news cards</h3>
+      <p class="microcopy">Use Rabbit scrollwheel (or mouse wheel) to move card-by-card.</p>
+      <div id="newsDeck" class="news-deck"></div>
     </section>
 
     <section id="summaryCard" class="card hidden">
@@ -52,13 +58,8 @@
       <a id="sourceLink" class="source-link" href="#" target="_blank" rel="noopener noreferrer">Open original page ↗</a>
     </section>
 
-    <section id="storyCardSection" class="card hidden">
-      <h3>Top story cards</h3>
-      <div id="storyCards" class="story-cards"></div>
-    </section>
-
     <section id="imageCard" class="card hidden">
-      <h3>Related images</h3>
+      <h3>Article images</h3>
       <div id="imageGallery" class="image-gallery"></div>
     </section>
 
@@ -77,6 +78,6 @@
     <section id="status" class="status" aria-live="polite"></section>
   </div>
 
-  <script src="./main.js?v=7"></script>
+  <script src="./main.js?v=8"></script>
 </body>
 </html>

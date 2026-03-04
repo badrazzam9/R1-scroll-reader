@@ -3,7 +3,7 @@ const API_BASE = (localStorage.getItem('r1_api_base') || 'https://r1-scroll-read
 const els = {
   urlInput: document.getElementById('urlInput'),
   previewBtn: document.getElementById('previewBtn'),
-  readBtn: document.getElementById('readBtn'),
+  fetchNewsBtn: document.getElementById('fetchNewsBtn'),
   searchInput: document.getElementById('searchInput'),
   searchBtn: document.getElementById('searchBtn'),
   scanBtn: document.getElementById('scanBtn'),
@@ -19,12 +19,12 @@ const els = {
   cancelPreviewBtn: document.getElementById('cancelPreviewBtn'),
   rescanPreviewBtn: document.getElementById('rescanPreviewBtn'),
   voiceBtn: document.getElementById('voiceBtn'),
-  reader: document.getElementById('reader'),
+  newsDeckSection: document.getElementById('newsDeckSection'),
+  newsDeck: document.getElementById('newsDeck'),
   summaryCard: document.getElementById('summaryCard'),
-  storyCardSection: document.getElementById('storyCardSection'),
-  storyCards: document.getElementById('storyCards'),
   imageCard: document.getElementById('imageCard'),
   imageGallery: document.getElementById('imageGallery'),
+  reader: document.getElementById('reader'),
   title: document.getElementById('title'),
   summary: document.getElementById('summary'),
   sourceLink: document.getElementById('sourceLink'),
@@ -35,6 +35,9 @@ let scannedCandidate = null;
 let stream = null;
 let rafId = null;
 let recognition = null;
+let newsCards = [];
+let currentCardIndex = 0;
+let wheelLocked = false;
 let lastReadData = null;
 
 function setStatus(msg) {
@@ -79,6 +82,7 @@ async function api(path, payload, method = 'POST') {
     headers: { 'Content-Type': 'application/json' },
     body: method === 'GET' ? undefined : JSON.stringify(payload || {})
   });
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
@@ -100,65 +104,124 @@ async function previewUrl(url) {
     setStatus(localSafe.reason);
     return;
   }
+
   try {
     const data = await api('/api/preview', { url });
     renderPreview(data);
-    setStatus(data.safe ? 'Preview ready.' : `Blocked: ${data.reason || 'unsafe URL'}`);
+    setStatus('Preview ready.');
   } catch (e) {
     setStatus(e.message);
   }
 }
 
-function renderStoryCards(cards = []) {
-  if (!els.storyCardSection || !els.storyCards) return;
+function createNewsCardElement(card, index) {
+  const article = document.createElement('article');
+  article.className = 'news-card';
+  article.dataset.index = String(index);
 
-  els.storyCards.innerHTML = '';
+  if (card.image?.url) {
+    const img = document.createElement('img');
+    img.className = 'news-card-image';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.src = card.image.url;
+    img.alt = card.image.alt || card.title || `News image ${index + 1}`;
+    img.referrerPolicy = 'no-referrer';
+    img.onerror = () => img.remove();
+    article.appendChild(img);
+  }
+
+  const content = document.createElement('div');
+  content.className = 'news-card-content';
+
+  const h4 = document.createElement('h4');
+  h4.textContent = card.title || `Story ${index + 1}`;
+  content.appendChild(h4);
+
+  const p = document.createElement('p');
+  p.textContent = card.snippet || '';
+  content.appendChild(p);
+
+  const actions = document.createElement('div');
+  actions.className = 'row';
+
+  const readBtn = document.createElement('button');
+  readBtn.className = 'btn btn-primary';
+  readBtn.textContent = 'Read this';
+  readBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (card.url) readArticle(card.url);
+  });
+
+  const openBtn = document.createElement('button');
+  openBtn.className = 'btn';
+  openBtn.textContent = 'Open source';
+  openBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (card.url) window.open(card.url, '_blank', 'noopener,noreferrer');
+  });
+
+  actions.append(readBtn, openBtn);
+  content.appendChild(actions);
+
+  article.appendChild(content);
+
+  article.addEventListener('click', () => {
+    setActiveCard(index);
+  });
+
+  return article;
+}
+
+function setActiveCard(nextIndex) {
+  const cards = [...els.newsDeck.querySelectorAll('.news-card')];
+  if (!cards.length) return;
+  currentCardIndex = Math.max(0, Math.min(nextIndex, cards.length - 1));
+
+  cards.forEach((c, i) => c.classList.toggle('active', i === currentCardIndex));
+  cards[currentCardIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const active = newsCards[currentCardIndex];
+  if (active?.title) setStatus(`Card ${currentCardIndex + 1}/${newsCards.length}: ${active.title}`);
+}
+
+function moveCard(direction) {
+  setActiveCard(currentCardIndex + direction);
+}
+
+function attachWheelCardSwipe() {
+  if (!els.newsDeck) return;
+  els.newsDeck.onwheel = (event) => {
+    if (!newsCards.length) return;
+    event.preventDefault();
+    if (wheelLocked) return;
+    wheelLocked = true;
+
+    moveCard(event.deltaY > 0 ? 1 : -1);
+    setTimeout(() => {
+      wheelLocked = false;
+    }, 260);
+  };
+}
+
+function renderNewsCards(cards = []) {
+  newsCards = cards;
+  currentCardIndex = 0;
+  els.newsDeck.innerHTML = '';
+
   if (!cards.length) {
-    els.storyCardSection.classList.add('hidden');
+    els.newsDeckSection.classList.add('hidden');
+    setStatus('No news cards found from this source.');
     return;
   }
 
-  cards.slice(0, 10).forEach((card, i) => {
-    const article = document.createElement('article');
-    article.className = 'story-card';
-
-    if (card.image?.url) {
-      const img = document.createElement('img');
-      img.className = 'story-card-image';
-      img.loading = 'lazy';
-      img.decoding = 'async';
-      img.src = card.image.url;
-      img.alt = card.image.alt || card.title || `Story image ${i + 1}`;
-      img.referrerPolicy = 'no-referrer';
-      article.appendChild(img);
-    }
-
-    const content = document.createElement('div');
-    content.className = 'story-card-content';
-
-    const h4 = document.createElement('h4');
-    h4.textContent = card.title || `Story ${i + 1}`;
-    content.appendChild(h4);
-
-    const p = document.createElement('p');
-    p.textContent = card.snippet || '';
-    content.appendChild(p);
-
-    const jump = document.createElement('button');
-    jump.className = 'btn';
-    jump.textContent = 'Open section';
-    jump.addEventListener('click', () => {
-      const sectionId = `section-${(card.sectionIndex || i) + 1}`;
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-    content.appendChild(jump);
-
-    article.appendChild(content);
-    els.storyCards.appendChild(article);
+  cards.forEach((card, index) => {
+    els.newsDeck.appendChild(createNewsCardElement(card, index));
   });
 
-  if (els.storyCards.children.length) els.storyCardSection.classList.remove('hidden');
-  else els.storyCardSection.classList.add('hidden');
+  els.newsDeckSection.classList.remove('hidden');
+  attachWheelCardSwipe();
+  setActiveCard(0);
 }
 
 function renderImages(images = []) {
@@ -198,11 +261,12 @@ function escapeHtml(s = '') {
   return s.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
-function renderRead(data) {
+function renderArticle(data) {
   lastReadData = data;
   els.summaryCard.classList.remove('hidden');
   els.title.textContent = data.title || data.domain || 'Untitled';
   els.summary.textContent = data.summary || 'No summary available.';
+
   if (data.canonicalUrl) {
     els.sourceLink.href = data.canonicalUrl;
     els.sourceLink.classList.remove('hidden');
@@ -210,24 +274,33 @@ function renderRead(data) {
     els.sourceLink.classList.add('hidden');
   }
 
-  renderStoryCards(data.cards || []);
   renderImages(data.images || []);
 
   els.reader.innerHTML = '';
   (data.sections || []).forEach((txt, i) => {
-    const card = document.createElement('article');
-    card.className = 'section-card';
-    card.id = `section-${i + 1}`;
-    card.innerHTML = `<h4>Section ${i + 1}</h4><p>${escapeHtml(txt)}</p>`;
-    els.reader.appendChild(card);
+    const section = document.createElement('article');
+    section.className = 'section-card';
+    section.id = `section-${i + 1}`;
+    section.innerHTML = `<h4>Section ${i + 1}</h4><p>${escapeHtml(txt)}</p>`;
+    els.reader.appendChild(section);
   });
 }
 
-async function readUrl(url) {
+async function fetchNews(url) {
+  try {
+    const data = await api('/api/news', { url });
+    renderNewsCards(data.cards || []);
+    setStatus(`Fetched ${data.cards?.length || 0} cards from ${data.domain}. Use wheel to swipe.`);
+  } catch (e) {
+    setStatus(e.message);
+  }
+}
+
+async function readArticle(url) {
   try {
     const data = await api('/api/read', { url });
-    renderRead(data);
-    setStatus(`Loaded ${data.sections?.length || 0} sections from ${data.domain}.`);
+    renderArticle(data);
+    setStatus(`Loaded article from ${data.domain}.`);
   } catch (e) {
     setStatus(e.message);
   }
@@ -236,7 +309,7 @@ async function readUrl(url) {
 async function healthCheck() {
   try {
     await api('/health', null, 'GET');
-    setStatus('Connected. Paste/scan a URL to start reading.');
+    setStatus('Connected. Enter a source and fetch news cards.');
   } catch (e) {
     setStatus(`API unavailable: ${e.message}`);
   }
@@ -283,7 +356,7 @@ async function startScan() {
             return;
           }
         } catch {
-          // ignore and continue scanning
+          // keep scanning
         }
         rafId = requestAnimationFrame(tick);
       };
@@ -313,6 +386,7 @@ function setupVoice() {
     const text = e.results[0][0].transcript.toLowerCase().trim();
     handleVoiceIntent(text);
   };
+
   recognition.onerror = () => setStatus('Voice input failed. Try again.');
 }
 
@@ -328,60 +402,65 @@ function handleVoiceIntent(text) {
     return;
   }
 
+  if (text === 'fetch news' || text === 'get news') {
+    const url = normalizeToUrl(els.urlInput.value.trim());
+    if (!url) return setStatus('Set a valid source URL first.');
+    fetchNews(url);
+    return;
+  }
+
   if (text.startsWith('search ')) {
     const q = text.replace(/^search\s+/, '').trim();
     if (!q) return setStatus('Say: search <topic>.');
     els.searchInput.value = q;
-    const url = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+    const url = `https://news.google.com/search?q=${encodeURIComponent(q)}`;
     els.urlInput.value = url;
-    previewUrl(url);
+    fetchNews(url);
     return;
   }
 
+  if (text === 'next card') return moveCard(1);
+  if (text === 'previous card' || text === 'back card') return moveCard(-1);
+
+  if (text === 'read card' || text === 'read this') {
+    const card = newsCards[currentCardIndex];
+    if (!card?.url) return setStatus('No active card selected.');
+    readArticle(card.url);
+    return;
+  }
+
+  if (text === 'scroll down') return moveCard(1);
+  if (text === 'scroll up') return moveCard(-1);
+
   if (text === 'summarize this') {
-    if (!lastReadData) return setStatus('No page loaded yet.');
+    if (!lastReadData) return setStatus('No article loaded yet.');
     els.summaryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
 
-  if (text === 'scroll down') return window.scrollBy({ top: 500, behavior: 'smooth' });
-  if (text === 'scroll up') return window.scrollBy({ top: -500, behavior: 'smooth' });
-
-  if (text === 'next section') {
-    const cards = [...document.querySelectorAll('.section-card')];
-    const current = cards.findIndex(c => c.getBoundingClientRect().top > 90);
-    const idx = current === -1 ? cards.length - 1 : current;
-    cards[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    return;
-  }
-
-  if (text === 'back') return history.back();
-
-  setStatus('Try: open bbc.com, search bitcoin, summarize this, scroll down, next section.');
+  setStatus('Try: open bbc.com, fetch news, next card, read card, search AI regulation UK.');
 }
 
 els.previewBtn.addEventListener('click', () => {
-  const raw = els.urlInput.value.trim();
-  const normalized = normalizeToUrl(raw);
-  if (!normalized) return setStatus('Enter a valid URL (e.g. bbc.com or https://bbc.com).');
-  els.urlInput.value = normalized;
-  previewUrl(normalized);
+  const url = normalizeToUrl(els.urlInput.value.trim());
+  if (!url) return setStatus('Enter a valid URL (e.g. bbc.com or https://bbc.com).');
+  els.urlInput.value = url;
+  previewUrl(url);
 });
 
-els.readBtn.addEventListener('click', () => {
-  const raw = els.urlInput.value.trim();
-  const normalized = normalizeToUrl(raw);
-  if (!normalized) return setStatus('Enter a valid URL (e.g. bbc.com or https://bbc.com).');
-  els.urlInput.value = normalized;
-  readUrl(normalized);
+els.fetchNewsBtn.addEventListener('click', () => {
+  const url = normalizeToUrl(els.urlInput.value.trim());
+  if (!url) return setStatus('Enter a valid URL first.');
+  els.urlInput.value = url;
+  fetchNews(url);
 });
 
 els.searchBtn.addEventListener('click', () => {
   const q = els.searchInput.value.trim();
   if (!q) return;
-  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+  const url = `https://news.google.com/search?q=${encodeURIComponent(q)}`;
   els.urlInput.value = url;
-  previewUrl(url);
+  fetchNews(url);
 });
 
 els.scanBtn.addEventListener('click', startScan);
@@ -398,7 +477,7 @@ els.manualUrlBtn.addEventListener('click', () => {
 
 els.openPreviewBtn.addEventListener('click', () => {
   if (!scannedCandidate) return;
-  readUrl(scannedCandidate);
+  fetchNews(scannedCandidate);
 });
 
 els.cancelPreviewBtn.addEventListener('click', () => {
