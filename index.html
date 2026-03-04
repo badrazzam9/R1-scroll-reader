@@ -7,74 +7,71 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">R1 Scroll Reader</div>
-    <div class="actions">
-      <button id="voiceBtn" class="btn">🎙 Voice</button>
-      <button id="scanBtn" class="btn btn-primary">📷 Scan QR</button>
-    </div>
-  </header>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="brand">R1 Scroll Reader</div>
+        <div class="sub">Practical web reading for Rabbit R1</div>
+      </div>
+      <div class="actions">
+        <button id="voiceBtn" class="btn">🎙 Voice</button>
+        <button id="scanBtn" class="btn btn-primary">📷 Scan QR</button>
+      </div>
+    </header>
 
-  <section class="controls card">
-    <label for="workerUrlInput">Worker URL</label>
-    <div class="row">
-      <input id="workerUrlInput" type="url" placeholder="https://your-worker.workers.dev" />
-      <button id="saveWorkerBtn" class="btn">Save</button>
-      <button id="healthBtn" class="btn">Health</button>
-    </div>
-    <div id="workerStatus" class="microcopy"></div>
-  </section>
+    <section class="controls card">
+      <label for="urlInput">Website URL</label>
+      <div class="row">
+        <input id="urlInput" type="url" placeholder="bbc.com or https://example.com/article" />
+        <button id="previewBtn" class="btn">Preview</button>
+        <button id="readBtn" class="btn btn-primary">Read</button>
+      </div>
 
-  <section class="controls card">
-    <label for="urlInput">URL</label>
-    <div class="row">
-      <input id="urlInput" type="url" placeholder="https://example.com/article" />
-      <button id="previewBtn" class="btn">Preview</button>
-      <button id="readBtn" class="btn btn-primary">Read</button>
-    </div>
-    <label for="searchInput">Search</label>
-    <div class="row">
-      <input id="searchInput" type="text" placeholder="Search the web..." />
-      <button id="searchBtn" class="btn">Go</button>
-    </div>
-  </section>
+      <label for="searchInput">Search the web</label>
+      <div class="row">
+        <input id="searchInput" type="text" placeholder="Type a topic and press Go" />
+        <button id="searchBtn" class="btn">Go</button>
+      </div>
+    </section>
 
-  <section id="previewPane" class="card hidden" aria-live="polite">
-    <h3>URL Preview</h3>
-    <div><strong>Domain:</strong> <span id="previewDomain">-</span></div>
-    <div class="full-url"><strong>URL:</strong> <span id="previewUrl">-</span></div>
-    <div><strong>Safety:</strong> <span id="previewSafety" class="badge">Unknown</span></div>
-    <div class="row top-gap">
-      <button id="openPreviewBtn" class="btn btn-primary">Open</button>
-      <button id="cancelPreviewBtn" class="btn">Cancel</button>
-      <button id="rescanPreviewBtn" class="btn">Rescan</button>
-    </div>
-  </section>
+    <section id="previewPane" class="card hidden" aria-live="polite">
+      <h3>URL Preview</h3>
+      <div><strong>Domain:</strong> <span id="previewDomain">-</span></div>
+      <div class="full-url"><strong>URL:</strong> <span id="previewUrl">-</span></div>
+      <div><strong>Safety:</strong> <span id="previewSafety" class="badge">Unknown</span></div>
+      <div class="row top-gap">
+        <button id="openPreviewBtn" class="btn btn-primary">Open</button>
+        <button id="cancelPreviewBtn" class="btn">Cancel</button>
+        <button id="rescanPreviewBtn" class="btn">Rescan</button>
+      </div>
+    </section>
 
-  <section id="summaryCard" class="card hidden">
-    <h2 id="title">No article loaded yet</h2>
-    <p id="summary" class="summary"></p>
-  </section>
+    <section id="summaryCard" class="card hidden">
+      <h2 id="title">No article loaded yet</h2>
+      <p id="summary" class="summary"></p>
+      <a id="sourceLink" class="source-link" href="#" target="_blank" rel="noopener noreferrer">Open original page ↗</a>
+    </section>
 
-  <section id="imageCard" class="card hidden">
-    <h3>Related images</h3>
-    <div id="imageGallery" class="image-gallery"></div>
-  </section>
+    <section id="imageCard" class="card hidden">
+      <h3>Related images</h3>
+      <div id="imageGallery" class="image-gallery"></div>
+    </section>
 
-  <main id="reader" class="reader"></main>
+    <main id="reader" class="reader"></main>
 
-  <section id="scannerPane" class="card hidden">
-    <h3>QR Scanner</h3>
-    <p class="microcopy">Point your camera at a QR code. If camera isn't available, paste URL manually.</p>
-    <video id="scannerVideo" playsinline autoplay muted></video>
-    <div class="row top-gap">
-      <button id="stopScanBtn" class="btn">Stop</button>
-      <button id="manualUrlBtn" class="btn">Manual URL</button>
-    </div>
-  </section>
+    <section id="scannerPane" class="card hidden">
+      <h3>QR Scanner</h3>
+      <p class="microcopy">Point your camera at a QR code. If camera isn't available, paste URL manually.</p>
+      <video id="scannerVideo" playsinline autoplay muted></video>
+      <div class="row top-gap">
+        <button id="stopScanBtn" class="btn">Stop</button>
+        <button id="manualUrlBtn" class="btn">Manual URL</button>
+      </div>
+    </section>
 
-  <section id="status" class="status" aria-live="polite"></section>
+    <section id="status" class="status" aria-live="polite"></section>
+  </div>
 
-  <script src="./main.js?v=5"></script>
+  <script src="./main.js?v=6"></script>
 </body>
 </html>

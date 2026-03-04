@@ -1,8 +1,6 @@
+const API_BASE = (localStorage.getItem('r1_api_base') || 'https://r1-scroll-reader-worker.swordandscroll.workers.dev').replace(/\/$/, '');
+
 const els = {
-  workerUrlInput: document.getElementById('workerUrlInput'),
-  saveWorkerBtn: document.getElementById('saveWorkerBtn'),
-  healthBtn: document.getElementById('healthBtn'),
-  workerStatus: document.getElementById('workerStatus'),
   urlInput: document.getElementById('urlInput'),
   previewBtn: document.getElementById('previewBtn'),
   readBtn: document.getElementById('readBtn'),
@@ -27,6 +25,7 @@ const els = {
   imageGallery: document.getElementById('imageGallery'),
   title: document.getElementById('title'),
   summary: document.getElementById('summary'),
+  sourceLink: document.getElementById('sourceLink'),
   status: document.getElementById('status')
 };
 
@@ -36,17 +35,26 @@ let rafId = null;
 let recognition = null;
 let lastReadData = null;
 
-function setStatus(msg) { els.status.textContent = msg || ''; }
-function workerBase() { return (els.workerUrlInput.value || '').trim().replace(/\/$/, ''); }
-
-function saveWorkerUrl() {
-  localStorage.setItem('r1_worker_url', workerBase());
-  els.workerStatus.textContent = 'Saved.';
+function setStatus(msg) {
+  els.status.textContent = msg || '';
 }
 
-function loadWorkerUrl() {
-  const saved = localStorage.getItem('r1_worker_url') || 'https://r1-scroll-reader-worker.swordandscroll.workers.dev';
-  els.workerUrlInput.value = saved;
+function normalizeToUrl(input) {
+  if (!input) return null;
+  const cleaned = input.trim();
+  if (/^https?:\/\//i.test(cleaned)) return cleaned;
+  if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(cleaned)) return `https://${cleaned}`;
+  return null;
+}
+
+function normalizeVoiceUrl(input) {
+  if (!input) return null;
+  const spoken = input
+    .replace(/\s+dot\s+/gi, '.')
+    .replace(/\s+slash\s+/gi, '/')
+    .replace(/\s+/g, '')
+    .trim();
+  return normalizeToUrl(spoken);
 }
 
 function looksSafeUrl(urlStr) {
@@ -63,19 +71,8 @@ function looksSafeUrl(urlStr) {
   }
 }
 
-function renderPreview(data) {
-  els.previewPane.classList.remove('hidden');
-  els.previewDomain.textContent = data.domain || '-';
-  els.previewUrl.textContent = data.url || '-';
-  els.previewSafety.textContent = data.safe ? 'Safe' : 'Blocked';
-  els.previewSafety.className = `badge ${data.safe ? 'safe' : 'blocked'}`;
-  scannedCandidate = data.url;
-}
-
 async function api(path, payload, method = 'POST') {
-  const base = workerBase();
-  if (!base) throw new Error('Set Worker URL first.');
-  const res = await fetch(`${base}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: method === 'GET' ? undefined : JSON.stringify(payload || {})
@@ -83,6 +80,15 @@ async function api(path, payload, method = 'POST') {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
+}
+
+function renderPreview(data) {
+  els.previewPane.classList.remove('hidden');
+  els.previewDomain.textContent = data.domain || '-';
+  els.previewUrl.textContent = data.url || '-';
+  els.previewSafety.textContent = data.safe ? 'Safe' : 'Blocked';
+  els.previewSafety.className = `badge ${data.safe ? 'safe' : 'blocked'}`;
+  scannedCandidate = data.url;
 }
 
 async function previewUrl(url) {
@@ -102,7 +108,6 @@ async function previewUrl(url) {
 }
 
 function renderImages(images = []) {
-  if (!els.imageCard || !els.imageGallery) return;
   els.imageGallery.innerHTML = '';
   if (!images.length) {
     els.imageCard.classList.add('hidden');
@@ -120,7 +125,6 @@ function renderImages(images = []) {
     image.alt = img.alt || `Related image ${i + 1}`;
     image.referrerPolicy = 'no-referrer';
     image.onerror = () => fig.remove();
-
     fig.appendChild(image);
 
     if (img.alt) {
@@ -136,12 +140,24 @@ function renderImages(images = []) {
   else els.imageCard.classList.add('hidden');
 }
 
+function escapeHtml(s = '') {
+  return s.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
 function renderRead(data) {
   lastReadData = data;
   els.summaryCard.classList.remove('hidden');
   els.title.textContent = data.title || data.domain || 'Untitled';
   els.summary.textContent = data.summary || 'No summary available.';
+  if (data.canonicalUrl) {
+    els.sourceLink.href = data.canonicalUrl;
+    els.sourceLink.classList.remove('hidden');
+  } else {
+    els.sourceLink.classList.add('hidden');
+  }
+
   renderImages(data.images || []);
+
   els.reader.innerHTML = '';
   (data.sections || []).forEach((txt, i) => {
     const card = document.createElement('article');
@@ -150,10 +166,6 @@ function renderRead(data) {
     card.innerHTML = `<h4>Section ${i + 1}</h4><p>${escapeHtml(txt)}</p>`;
     els.reader.appendChild(card);
   });
-}
-
-function escapeHtml(s='') {
-  return s.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
 async function readUrl(url) {
@@ -168,10 +180,10 @@ async function readUrl(url) {
 
 async function healthCheck() {
   try {
-    const data = await api('/health', null, 'GET');
-    els.workerStatus.textContent = `Worker OK (${data.status})`;
+    await api('/health', null, 'GET');
+    setStatus('Connected. Paste/scan a URL to start reading.');
   } catch (e) {
-    els.workerStatus.textContent = e.message;
+    setStatus(`API unavailable: ${e.message}`);
   }
 }
 
@@ -187,13 +199,19 @@ async function startScan() {
   if (!navigator.mediaDevices?.getUserMedia) {
     setStatus('Camera unavailable. Use manual URL.');
     const manual = prompt('Paste URL from QR code:');
-    if (manual) { els.urlInput.value = manual; previewUrl(manual); }
+    if (!manual) return;
+    const normalized = normalizeToUrl(manual.trim());
+    if (!normalized) return setStatus('Invalid URL. Try bbc.com or full https:// URL.');
+    els.urlInput.value = normalized;
+    previewUrl(normalized);
     return;
   }
+
   els.scannerPane.classList.remove('hidden');
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     els.scannerVideo.srcObject = stream;
+
     if ('BarcodeDetector' in window) {
       const detector = new BarcodeDetector({ formats: ['qr_code'] });
       const tick = async () => {
@@ -203,16 +221,20 @@ async function startScan() {
           if (barcodes.length) {
             const value = barcodes[0].rawValue;
             stopScan();
-            els.urlInput.value = value;
-            await previewUrl(value);
+            const normalized = normalizeToUrl(value.trim());
+            if (!normalized) return setStatus('Invalid URL from QR code.');
+            els.urlInput.value = normalized;
+            await previewUrl(normalized);
             return;
           }
-        } catch {}
+        } catch {
+          // ignore and continue scanning
+        }
         rafId = requestAnimationFrame(tick);
       };
       tick();
     } else {
-      setStatus('Barcode detector unavailable. Use manual URL fallback.');
+      setStatus('QR detector unavailable. Use Manual URL.');
     }
   } catch {
     setStatus('Could not access camera. Use manual URL fallback.');
@@ -226,6 +248,7 @@ function setupVoice() {
     els.voiceBtn.textContent = '🎙 Voice (unsupported)';
     return;
   }
+
   recognition = new SR();
   recognition.lang = 'en-GB';
   recognition.continuous = false;
@@ -238,50 +261,50 @@ function setupVoice() {
   recognition.onerror = () => setStatus('Voice input failed. Try again.');
 }
 
-function normalizeToUrl(input) {
-  if (/^https?:\/\//i.test(input)) return input;
-  if (/^[\w.-]+\.[a-z]{2,}/i.test(input)) return `https://${input}`;
-  return null;
-}
-
 function handleVoiceIntent(text) {
   setStatus(`Heard: "${text}"`);
+
   if (text.startsWith('open ')) {
     const target = text.replace(/^open\s+/, '');
-    const url = normalizeToUrl(target);
+    const url = normalizeVoiceUrl(target);
     if (!url) return setStatus('Could not parse URL to open.');
     els.urlInput.value = url;
     previewUrl(url);
     return;
   }
+
   if (text.startsWith('search ')) {
-    const q = text.replace(/^search\s+/, '');
+    const q = text.replace(/^search\s+/, '').trim();
+    if (!q) return setStatus('Say: search <topic>.');
     els.searchInput.value = q;
-    const url = `https://duckduckgo.com/?q=${encodeURIComponent(q)}`;
+    const url = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
     els.urlInput.value = url;
     previewUrl(url);
     return;
   }
+
   if (text === 'summarize this') {
     if (!lastReadData) return setStatus('No page loaded yet.');
     els.summaryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
+
   if (text === 'scroll down') return window.scrollBy({ top: 500, behavior: 'smooth' });
   if (text === 'scroll up') return window.scrollBy({ top: -500, behavior: 'smooth' });
+
   if (text === 'next section') {
     const cards = [...document.querySelectorAll('.section-card')];
-    const current = cards.findIndex(c => c.getBoundingClientRect().top > 80);
+    const current = cards.findIndex(c => c.getBoundingClientRect().top > 90);
     const idx = current === -1 ? cards.length - 1 : current;
     cards[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
+
   if (text === 'back') return history.back();
-  setStatus('Intent not recognized. Try open/search/scroll/next section/back.');
+
+  setStatus('Try: open bbc.com, search bitcoin, summarize this, scroll down, next section.');
 }
 
-els.saveWorkerBtn.addEventListener('click', saveWorkerUrl);
-els.healthBtn.addEventListener('click', healthCheck);
 els.previewBtn.addEventListener('click', () => {
   const raw = els.urlInput.value.trim();
   const normalized = normalizeToUrl(raw);
@@ -289,6 +312,7 @@ els.previewBtn.addEventListener('click', () => {
   els.urlInput.value = normalized;
   previewUrl(normalized);
 });
+
 els.readBtn.addEventListener('click', () => {
   const raw = els.urlInput.value.trim();
   const normalized = normalizeToUrl(raw);
@@ -296,34 +320,41 @@ els.readBtn.addEventListener('click', () => {
   els.urlInput.value = normalized;
   readUrl(normalized);
 });
-els.scanBtn.addEventListener('click', startScan);
-els.stopScanBtn.addEventListener('click', stopScan);
-els.manualUrlBtn.addEventListener('click', () => {
-  const manual = prompt('Paste URL:');
-  if (manual) {
-    const normalized = normalizeToUrl(manual.trim());
-    if (!normalized) return setStatus('Invalid URL. Try bbc.com or full https:// URL.');
-    els.urlInput.value = normalized;
-    previewUrl(normalized);
-  }
-});
+
 els.searchBtn.addEventListener('click', () => {
   const q = els.searchInput.value.trim();
   if (!q) return;
-  const url = `https://duckduckgo.com/?q=${encodeURIComponent(q)}`;
+  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
   els.urlInput.value = url;
   previewUrl(url);
 });
-els.openPreviewBtn.addEventListener('click', () => scannedCandidate && readUrl(scannedCandidate));
+
+els.scanBtn.addEventListener('click', startScan);
+els.stopScanBtn.addEventListener('click', stopScan);
+
+els.manualUrlBtn.addEventListener('click', () => {
+  const manual = prompt('Paste URL:');
+  if (!manual) return;
+  const normalized = normalizeToUrl(manual.trim());
+  if (!normalized) return setStatus('Invalid URL. Try bbc.com or full https:// URL.');
+  els.urlInput.value = normalized;
+  previewUrl(normalized);
+});
+
+els.openPreviewBtn.addEventListener('click', () => {
+  if (!scannedCandidate) return;
+  readUrl(scannedCandidate);
+});
+
 els.cancelPreviewBtn.addEventListener('click', () => {
   els.previewPane.classList.add('hidden');
   scannedCandidate = null;
   setStatus('Preview cancelled.');
 });
+
 els.rescanPreviewBtn.addEventListener('click', startScan);
 els.voiceBtn.addEventListener('click', () => recognition?.start());
 
 window.addEventListener('beforeunload', stopScan);
-loadWorkerUrl();
 setupVoice();
-setStatus('Ready. Set Worker URL, then scan or paste a URL.');
+healthCheck();
