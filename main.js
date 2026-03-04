@@ -31,7 +31,6 @@ const els = {
   recentArticles: document.getElementById('recentArticles'),
 
   cardsTitle: document.getElementById('cardsTitle'),
-  cardsSub: document.getElementById('cardsSub'),
   prevCardBtn: document.getElementById('prevCardBtn'),
   nextCardBtn: document.getElementById('nextCardBtn'),
   deck: document.getElementById('deck'),
@@ -48,8 +47,6 @@ const state = {
   view: 'home',
   cards: [],
   activeCardIndex: 0,
-  wheelLocked: false,
-  lastScrollY: 0,
   previewCandidate: null,
   recentSearches: [],
   recentArticles: []
@@ -267,33 +264,19 @@ function createCardElement(card, index) {
   return article;
 }
 
-function setActiveCard(index) {
+function setActiveCard(index, { scroll = true } = {}) {
   const cards = [...els.deck.querySelectorAll('.news-card')];
   if (!cards.length) return;
 
   state.activeCardIndex = Math.max(0, Math.min(index, cards.length - 1));
 
   cards.forEach((cardEl, i) => {
-    const diff = i - state.activeCardIndex;
-    const abs = Math.abs(diff);
-
-    if (abs > 2) {
-      cardEl.classList.add('hide');
-      cardEl.style.pointerEvents = 'none';
-      return;
-    }
-
-    const y = diff * 34;
-    const scale = 1 - Math.min(abs * 0.09, 0.18);
-    const opacity = diff === 0 ? 1 : Math.max(0.2, 1 - abs * 0.35);
-
-    cardEl.classList.remove('hide');
-    cardEl.classList.toggle('is-active', diff === 0);
-    cardEl.style.transform = `translate(-50%, calc(-50% + ${y}px)) scale(${scale})`;
-    cardEl.style.opacity = String(opacity);
-    cardEl.style.zIndex = String(100 - abs);
-    cardEl.style.pointerEvents = diff === 0 ? 'auto' : 'none';
+    cardEl.classList.toggle('is-active', i === state.activeCardIndex);
   });
+
+  if (scroll) {
+    cards[state.activeCardIndex]?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+  }
 
   const active = state.cards[state.activeCardIndex];
   if (active?.title) setStatus(`Card ${state.activeCardIndex + 1}/${state.cards.length}: ${active.title}`);
@@ -305,19 +288,34 @@ function moveCard(step) {
 
 function handleCardStep(step) {
   if (state.view !== 'cards' || !state.cards.length) return;
-  if (state.wheelLocked) return;
-
-  state.wheelLocked = true;
   moveCard(step);
-  setTimeout(() => { state.wheelLocked = false; }, 140);
+}
+
+function activeIndexFromDeckScroll() {
+  const cards = [...els.deck.querySelectorAll('.news-card')];
+  if (!cards.length) return 0;
+
+  const deckTop = els.deck.getBoundingClientRect().top;
+  let bestIndex = 0;
+  let bestDist = Number.POSITIVE_INFINITY;
+
+  cards.forEach((card, i) => {
+    const dist = Math.abs(card.getBoundingClientRect().top - deckTop);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIndex = i;
+    }
+  });
+
+  return bestIndex;
 }
 
 function attachDeckControls() {
-  els.deck.onwheel = (event) => {
+  els.deck.addEventListener('scroll', () => {
     if (state.view !== 'cards') return;
-    event.preventDefault();
-    handleCardStep(event.deltaY > 0 ? 1 : -1);
-  };
+    const idx = activeIndexFromDeckScroll();
+    if (idx !== state.activeCardIndex) setActiveCard(idx, { scroll: false });
+  }, { passive: true });
 }
 
 function renderCards(cards = [], sourceLabel = 'News') {
@@ -336,8 +334,10 @@ function renderCards(cards = [], sourceLabel = 'News') {
 
   els.cardsTitle.textContent = sourceLabel;
   setView('cards');
-  attachDeckControls();
-  setActiveCard(0);
+  els.deck.scrollTop = 0;
+  els.deck.setAttribute('tabindex', '0');
+  els.deck.focus();
+  setActiveCard(0, { scroll: false });
 }
 
 function renderArticle(data) {
@@ -469,23 +469,6 @@ function bindUi() {
   els.prevCardBtn.addEventListener('click', () => handleCardStep(-1));
   els.nextCardBtn.addEventListener('click', () => handleCardStep(1));
 
-  window.addEventListener('wheel', (event) => {
-    if (state.view !== 'cards') return;
-    event.preventDefault();
-    handleCardStep(event.deltaY > 0 ? 1 : -1);
-  }, { passive: false });
-
-  window.addEventListener('scroll', () => {
-    if (state.view !== 'cards') return;
-    const current = window.scrollY || document.documentElement.scrollTop || 0;
-    const delta = current - state.lastScrollY;
-    if (Math.abs(delta) > 6) {
-      handleCardStep(delta > 0 ? 1 : -1);
-      window.scrollTo({ top: 0, behavior: 'auto' });
-    }
-    state.lastScrollY = 0;
-  }, { passive: true });
-
   window.addEventListener('keydown', (event) => {
     if (state.view !== 'cards') return;
 
@@ -516,6 +499,7 @@ function bindUi() {
 
 function boot() {
   bindUi();
+  attachDeckControls();
   loadRecent();
   setView('home', { push: false });
   history.replaceState({ view: 'home' }, '', '#home');

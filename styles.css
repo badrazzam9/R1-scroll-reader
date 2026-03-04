@@ -140,29 +140,37 @@ input {
 .compact-controls .btn { min-width: 26px; padding: .28rem .4rem; }
 
 .deck {
-  position: relative;
-  height: 188px;
+  height: 192px;
   margin: .35rem .2rem .55rem;
   border-radius: 10px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  padding-right: 1px;
 }
 
 .news-card {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: calc(100% - .15rem);
-  transform: translate(-50%, -50%);
+  width: 100%;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--border);
   background: linear-gradient(180deg, #1b2230, #121824);
-  box-shadow: 0 8px 18px rgba(0,0,0,.32);
-  transition: transform .18s ease, opacity .18s ease, box-shadow .18s ease, border-color .18s ease;
+  box-shadow: 0 8px 18px rgba(0,0,0,.24);
+  transition: border-color .12s ease, box-shadow .12s ease;
+  scroll-snap-align: start;
 }
 
-.news-card.is-active { border-color: rgba(240,84,98,.7); }
-.news-card.hide { opacity: 0; pointer-events: none; }
+.news-card + .news-card {
+  margin-top: .36rem;
+}
+
+.news-card.is-active {
+  border-color: rgba(240,84,98,.88);
+  box-shadow: 0 0 0 1px rgba(240,84,98,.22);
+}
+
+.news-card.hide { opacity: 1; pointer-events: auto; }
 
 .news-card-image {
   width: 100%;
