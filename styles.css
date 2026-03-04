@@ -1,0 +1,87 @@
+:root {
+  --bg: #0c0f14;
+  --panel: #171c23;
+  --text: #e7edf4;
+  --muted: #9aa8b5;
+  --accent: #4da3ff;
+  --safe: #28a745;
+  --warn: #dc3545;
+  --border: #293241;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0 0 3rem;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(12,15,20,.95);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+.brand { font-weight: 700; }
+.actions, .row { display: flex; gap: .5rem; flex-wrap: wrap; }
+.card {
+  margin: 0.75rem 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.reader {
+  display: grid;
+  gap: .75rem;
+  margin: 1rem;
+}
+.section-card {
+  border: 1px solid var(--border);
+  background: #131922;
+  border-radius: 12px;
+  padding: 1rem;
+  line-height: 1.55;
+}
+.section-card h4 { margin: 0 0 .5rem 0; color: #d5e7ff; }
+.btn {
+  border: 1px solid var(--border);
+  background: #222c3a;
+  color: var(--text);
+  border-radius: 9px;
+  padding: .5rem .8rem;
+  cursor: pointer;
+}
+.btn-primary { background: var(--accent); color: #081523; border-color: transparent; font-weight: 700; }
+input {
+  flex: 1;
+  min-width: 180px;
+  border: 1px solid var(--border);
+  background: #0f141c;
+  color: var(--text);
+  border-radius: 8px;
+  padding: .55rem .65rem;
+}
+label { display:block; margin:.4rem 0; color: var(--muted); font-size:.9rem; }
+.hidden { display: none; }
+.badge {
+  display: inline-block;
+  padding: .2rem .45rem;
+  border-radius: 999px;
+  font-size: .8rem;
+  background: #344055;
+}
+.badge.safe { background: rgba(40,167,69,.2); color: #8de7a4; border: 1px solid rgba(40,167,69,.4); }
+.badge.blocked { background: rgba(220,53,69,.2); color:#ff9da8; border:1px solid rgba(220,53,69,.5); }
+.microcopy { color: var(--muted); font-size: .86rem; }
+.status { margin: 0.75rem 1rem; color: #b6c3d1; min-height: 1.2rem; }
+.top-gap { margin-top: .75rem; }
+#scannerVideo { width: 100%; max-height: 280px; background: #000; border-radius: 10px; }
+.full-url { overflow-wrap: anywhere; }
+.summary { color: #d0d9e4; }
