@@ -21,6 +21,8 @@ const els = {
   voiceBtn: document.getElementById('voiceBtn'),
   reader: document.getElementById('reader'),
   summaryCard: document.getElementById('summaryCard'),
+  storyCardSection: document.getElementById('storyCardSection'),
+  storyCards: document.getElementById('storyCards'),
   imageCard: document.getElementById('imageCard'),
   imageGallery: document.getElementById('imageGallery'),
   title: document.getElementById('title'),
@@ -107,6 +109,58 @@ async function previewUrl(url) {
   }
 }
 
+function renderStoryCards(cards = []) {
+  if (!els.storyCardSection || !els.storyCards) return;
+
+  els.storyCards.innerHTML = '';
+  if (!cards.length) {
+    els.storyCardSection.classList.add('hidden');
+    return;
+  }
+
+  cards.slice(0, 10).forEach((card, i) => {
+    const article = document.createElement('article');
+    article.className = 'story-card';
+
+    if (card.image?.url) {
+      const img = document.createElement('img');
+      img.className = 'story-card-image';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.src = card.image.url;
+      img.alt = card.image.alt || card.title || `Story image ${i + 1}`;
+      img.referrerPolicy = 'no-referrer';
+      article.appendChild(img);
+    }
+
+    const content = document.createElement('div');
+    content.className = 'story-card-content';
+
+    const h4 = document.createElement('h4');
+    h4.textContent = card.title || `Story ${i + 1}`;
+    content.appendChild(h4);
+
+    const p = document.createElement('p');
+    p.textContent = card.snippet || '';
+    content.appendChild(p);
+
+    const jump = document.createElement('button');
+    jump.className = 'btn';
+    jump.textContent = 'Open section';
+    jump.addEventListener('click', () => {
+      const sectionId = `section-${(card.sectionIndex || i) + 1}`;
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    content.appendChild(jump);
+
+    article.appendChild(content);
+    els.storyCards.appendChild(article);
+  });
+
+  if (els.storyCards.children.length) els.storyCardSection.classList.remove('hidden');
+  else els.storyCardSection.classList.add('hidden');
+}
+
 function renderImages(images = []) {
   els.imageGallery.innerHTML = '';
   if (!images.length) {
@@ -156,6 +210,7 @@ function renderRead(data) {
     els.sourceLink.classList.add('hidden');
   }
 
+  renderStoryCards(data.cards || []);
   renderImages(data.images || []);
 
   els.reader.innerHTML = '';
