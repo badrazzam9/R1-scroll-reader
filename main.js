@@ -54,7 +54,7 @@ const state = {
   wheelLocked: false
 };
 
-const BREAKING_NEWS_URL = 'https://news.google.com/topstories?hl=en-GB&gl=GB&ceid=GB:en';
+const BREAKING_NEWS_URL = 'https://news.google.com/rss?hl=en-GB&gl=GB&ceid=GB:en';
 
 function setStatus(message) {
   els.status.textContent = message || '';
@@ -210,6 +210,8 @@ function setActiveCard(index) {
 
   state.activeCardIndex = Math.max(0, Math.min(index, cards.length - 1));
 
+  const compact = window.innerWidth <= 480;
+
   cards.forEach((cardEl, i) => {
     const diff = i - state.activeCardIndex;
     const abs = Math.abs(diff);
@@ -220,9 +222,9 @@ function setActiveCard(index) {
       return;
     }
 
-    const y = diff * 62;
-    const scale = 1 - Math.min(abs * 0.07, 0.21);
-    const opacity = diff === 0 ? 1 : Math.max(0.2, 1 - abs * 0.27);
+    const y = diff * (compact ? 42 : 62);
+    const scale = 1 - Math.min(abs * (compact ? 0.08 : 0.07), compact ? 0.24 : 0.21);
+    const opacity = diff === 0 ? 1 : Math.max(compact ? 0.16 : 0.2, 1 - abs * 0.27);
 
     cardEl.classList.remove('hide');
     cardEl.classList.toggle('is-active', diff === 0);
@@ -240,15 +242,20 @@ function moveCard(step) {
   setActiveCard(state.activeCardIndex + step);
 }
 
+function handleCardStep(step) {
+  if (state.view !== 'cards' || !state.cards.length) return;
+  if (state.wheelLocked) return;
+
+  state.wheelLocked = true;
+  moveCard(step);
+  setTimeout(() => { state.wheelLocked = false; }, 170);
+}
+
 function attachDeckWheel() {
   els.deck.onwheel = (event) => {
     if (state.view !== 'cards' || !state.cards.length) return;
     event.preventDefault();
-    if (state.wheelLocked) return;
-
-    state.wheelLocked = true;
-    moveCard(event.deltaY > 0 ? 1 : -1);
-    setTimeout(() => { state.wheelLocked = false; }, 190);
+    handleCardStep(event.deltaY > 0 ? 1 : -1);
   };
 }
 
@@ -308,7 +315,7 @@ async function fetchBreakingNews() {
 }
 
 async function searchNews(query) {
-  const url = `https://news.google.com/search?q=${encodeURIComponent(query)}&hl=en-GB&gl=GB&ceid=GB:en`;
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-GB&gl=GB&ceid=GB:en`;
   await fetchNewsFromUrl(url, `Search: ${query}`);
 }
 
@@ -506,6 +513,34 @@ function bindUi() {
 
   els.rescanPreviewBtn.addEventListener('click', startScan);
   els.voiceBtn.addEventListener('click', () => state.recognition?.start());
+
+  window.addEventListener('wheel', (event) => {
+    if (state.view !== 'cards') return;
+    event.preventDefault();
+    handleCardStep(event.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+
+  window.addEventListener('keydown', (event) => {
+    if (state.view !== 'cards') return;
+
+    if (['ArrowDown', 'PageDown', 'j', 'J'].includes(event.key)) {
+      event.preventDefault();
+      handleCardStep(1);
+      return;
+    }
+
+    if (['ArrowUp', 'PageUp', 'k', 'K'].includes(event.key)) {
+      event.preventDefault();
+      handleCardStep(-1);
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const active = state.cards[state.activeCardIndex];
+      if (active?.url) readArticle(active.url);
+    }
+  });
 
   window.addEventListener('beforeunload', stopScan);
 }

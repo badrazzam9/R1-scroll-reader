@@ -58,7 +58,7 @@ body {
 }
 
 .app-shell {
-  max-width: 920px;
+  max-width: 430px;
   margin: 0 auto;
   padding: .45rem 0 2rem;
 }
@@ -174,8 +174,8 @@ input {
 
 .deck {
   position: relative;
-  height: min(72vh, 620px);
-  margin: .8rem 1rem 1rem;
+  height: min(63vh, 420px);
+  margin: .65rem .55rem .95rem;
   border-radius: 14px;
 }
 
@@ -183,14 +183,14 @@ input {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(760px, calc(100% - 1rem));
+  width: min(404px, calc(100% - .4rem));
   transform: translate(-50%, -50%);
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--border);
   background: linear-gradient(180deg, #1b2230, #121824);
-  box-shadow: 0 14px 36px rgba(0,0,0,.32);
-  transition: transform .25s ease, opacity .25s ease, box-shadow .25s ease, border-color .25s ease;
+  box-shadow: 0 10px 28px rgba(0,0,0,.32);
+  transition: transform .2s ease, opacity .2s ease, box-shadow .2s ease, border-color .2s ease;
 }
 
 .news-card.is-active {
@@ -205,7 +205,7 @@ input {
 
 .news-card-image {
   width: 100%;
-  height: 210px;
+  height: 118px;
   object-fit: cover;
   display: block;
   background: #0b111a;
@@ -219,15 +219,17 @@ input {
 
 .news-card-content h3 {
   margin: 0;
-  font-size: 1.08rem;
-  line-height: 1.32;
+  font-size: .98rem;
+  line-height: 1.3;
 }
 
 .news-card-content p {
   margin: 0;
   color: #d7deea;
-  line-height: 1.45;
-  min-height: 2.8em;
+  line-height: 1.35;
+  min-height: 2.4em;
+  max-height: 3.9em;
+  overflow: hidden;
 }
 
 .read-btn {
@@ -278,15 +280,20 @@ input {
 }
 
 .status {
-  max-width: 920px;
+  max-width: 430px;
   margin: .2rem auto 1rem;
   padding: 0 1rem;
   min-height: 1.2rem;
   color: #b5c1cf;
-  font-size: .9rem;
+  font-size: .86rem;
 }
 
 @media (max-width: 700px) {
-  .hero h1 { font-size: 1.35rem; }
-  .news-card-image { height: 170px; }
+  .hero h1 { font-size: 1.25rem; }
+  .card { margin: .6rem .5rem; padding: .8rem; }
+  .deck { height: min(62vh, 390px); margin: .5rem .4rem .8rem; }
+  .news-card { width: calc(100% - .2rem); }
+  .news-card-image { height: 104px; }
+  .news-card-content { padding: .7rem .75rem .8rem; }
+  .btn { padding: .48rem .68rem; font-size: .87rem; }
 }
