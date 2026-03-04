@@ -1,4 +1,8 @@
 const API_BASE = (localStorage.getItem('r1_api_base') || 'https://r1-scroll-reader-worker.swordandscroll.workers.dev').replace(/\/$/, '');
+const BREAKING_NEWS_URL = 'https://feeds.bbci.co.uk/news/world/rss.xml';
+
+const RECENT_SEARCH_KEY = 'r1_recent_searches_v1';
+const RECENT_ARTICLE_KEY = 'r1_recent_articles_v1';
 
 const els = {
   navBack: document.getElementById('navBack'),
@@ -15,8 +19,6 @@ const els = {
   searchInput: document.getElementById('searchInput'),
   searchBtn: document.getElementById('searchBtn'),
   breakingBtn: document.getElementById('breakingBtn'),
-  scanBtn: document.getElementById('scanBtn'),
-  voiceBtn: document.getElementById('voiceBtn'),
 
   previewPane: document.getElementById('previewPane'),
   previewDomain: document.getElementById('previewDomain'),
@@ -24,12 +26,9 @@ const els = {
   previewSafety: document.getElementById('previewSafety'),
   openPreviewBtn: document.getElementById('openPreviewBtn'),
   cancelPreviewBtn: document.getElementById('cancelPreviewBtn'),
-  rescanPreviewBtn: document.getElementById('rescanPreviewBtn'),
 
-  scannerPane: document.getElementById('scannerPane'),
-  scannerVideo: document.getElementById('scannerVideo'),
-  stopScanBtn: document.getElementById('stopScanBtn'),
-  manualUrlBtn: document.getElementById('manualUrlBtn'),
+  recentSearches: document.getElementById('recentSearches'),
+  recentArticles: document.getElementById('recentArticles'),
 
   cardsTitle: document.getElementById('cardsTitle'),
   cardsSub: document.getElementById('cardsSub'),
@@ -49,14 +48,12 @@ const state = {
   view: 'home',
   cards: [],
   activeCardIndex: 0,
-  scannedCandidate: null,
-  stream: null,
-  rafId: null,
-  recognition: null,
-  wheelLocked: false
+  wheelLocked: false,
+  lastScrollY: 0,
+  previewCandidate: null,
+  recentSearches: [],
+  recentArticles: []
 };
-
-const BREAKING_NEWS_URL = 'https://feeds.bbci.co.uk/news/world/rss.xml';
 
 function setStatus(message) {
   els.status.textContent = message || '';
@@ -72,16 +69,6 @@ function normaliseToUrl(input) {
   if (/^https?:\/\//i.test(value)) return value;
   if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(value)) return `https://${value}`;
   return null;
-}
-
-function normaliseVoiceUrl(input) {
-  if (!input) return null;
-  const spoken = input
-    .replace(/\s+dot\s+/gi, '.')
-    .replace(/\s+slash\s+/gi, '/')
-    .replace(/\s+/g, '')
-    .trim();
-  return normaliseToUrl(spoken);
 }
 
 function looksSafeUrl(urlStr) {
@@ -117,17 +104,11 @@ function setView(view, { push = true } = {}) {
   els.viewCards.classList.toggle('hidden', view !== 'cards');
   els.viewArticle.classList.toggle('hidden', view !== 'article');
 
-  const labels = {
-    home: 'Home',
-    cards: 'News Cards',
-    article: 'Article'
-  };
+  const labels = { home: 'Home', cards: 'News Cards', article: 'Article' };
   els.viewLabel.textContent = labels[view] || 'Home';
   els.navBack.disabled = view === 'home';
 
-  if (push) {
-    history.pushState({ view }, '', `#${view}`);
-  }
+  if (push) history.pushState({ view }, '', `#${view}`);
 }
 
 function goBackView() {
@@ -139,13 +120,85 @@ function goHomeView() {
   setView('home');
 }
 
+function saveRecent() {
+  localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(state.recentSearches.slice(0, 8)));
+  localStorage.setItem(RECENT_ARTICLE_KEY, JSON.stringify(state.recentArticles.slice(0, 10)));
+}
+
+function addRecentSearch(text) {
+  const q = String(text || '').trim();
+  if (!q) return;
+
+  state.recentSearches = [q, ...state.recentSearches.filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0, 8);
+  saveRecent();
+  renderRecentSearches();
+}
+
+function addRecentArticle(item) {
+  if (!item?.url || !item?.title) return;
+
+  const next = {
+    title: item.title,
+    url: item.url,
+    source: item.source || ''
+  };
+
+  state.recentArticles = [next, ...state.recentArticles.filter(x => x.url !== next.url)].slice(0, 10);
+  saveRecent();
+  renderRecentArticles();
+}
+
+function renderRecentSearches() {
+  els.recentSearches.innerHTML = '';
+
+  if (!state.recentSearches.length) {
+    const empty = document.createElement('div');
+    empty.className = 'recent-empty';
+    empty.textContent = 'No recent searches yet.';
+    els.recentSearches.appendChild(empty);
+    return;
+  }
+
+  state.recentSearches.forEach(q => {
+    const b = document.createElement('button');
+    b.className = 'recent-item';
+    b.textContent = `🔎 ${q}`;
+    b.addEventListener('click', () => {
+      els.searchInput.value = q;
+      searchNews(q);
+    });
+    els.recentSearches.appendChild(b);
+  });
+}
+
+function renderRecentArticles() {
+  els.recentArticles.innerHTML = '';
+
+  if (!state.recentArticles.length) {
+    const empty = document.createElement('div');
+    empty.className = 'recent-empty';
+    empty.textContent = 'No articles opened yet.';
+    els.recentArticles.appendChild(empty);
+    return;
+  }
+
+  state.recentArticles.forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'recent-item';
+    b.textContent = `📰 ${a.title}`;
+    b.title = a.url;
+    b.addEventListener('click', () => readArticle(a.url));
+    els.recentArticles.appendChild(b);
+  });
+}
+
 function renderPreview(data) {
   els.previewPane.classList.remove('hidden');
   els.previewDomain.textContent = data.domain || '-';
   els.previewUrl.textContent = data.url || '-';
   els.previewSafety.textContent = data.safe ? 'Safe' : 'Blocked';
   els.previewSafety.className = `badge ${data.safe ? 'safe' : 'blocked'}`;
-  state.scannedCandidate = data.url;
+  state.previewCandidate = data.url;
 }
 
 async function previewUrl(url) {
@@ -178,7 +231,10 @@ function createCardElement(card, index) {
     img.loading = 'lazy';
     img.decoding = 'async';
     img.referrerPolicy = 'no-referrer';
-    img.onerror = () => img.remove();
+    img.onerror = () => {
+      img.classList.add('news-card-image--placeholder');
+      img.alt = 'Top story';
+    };
     article.appendChild(img);
   } else {
     const ph = document.createElement('div');
@@ -194,7 +250,7 @@ function createCardElement(card, index) {
   title.textContent = card.title || `Story ${index + 1}`;
 
   const snippet = document.createElement('p');
-  snippet.textContent = card.snippet || 'Open this story for the full cleaned article.';
+  snippet.textContent = card.snippet || 'Open for full story.';
 
   const readBtn = document.createElement('button');
   readBtn.className = 'btn btn-primary read-btn';
@@ -217,21 +273,19 @@ function setActiveCard(index) {
 
   state.activeCardIndex = Math.max(0, Math.min(index, cards.length - 1));
 
-  const compact = window.innerWidth <= 480;
-
   cards.forEach((cardEl, i) => {
     const diff = i - state.activeCardIndex;
     const abs = Math.abs(diff);
 
-    if (abs > 3) {
+    if (abs > 2) {
       cardEl.classList.add('hide');
       cardEl.style.pointerEvents = 'none';
       return;
     }
 
-    const y = diff * (compact ? 42 : 62);
-    const scale = 1 - Math.min(abs * (compact ? 0.08 : 0.07), compact ? 0.24 : 0.21);
-    const opacity = diff === 0 ? 1 : Math.max(compact ? 0.16 : 0.2, 1 - abs * 0.27);
+    const y = diff * 34;
+    const scale = 1 - Math.min(abs * 0.09, 0.18);
+    const opacity = diff === 0 ? 1 : Math.max(0.2, 1 - abs * 0.35);
 
     cardEl.classList.remove('hide');
     cardEl.classList.toggle('is-active', diff === 0);
@@ -242,7 +296,7 @@ function setActiveCard(index) {
   });
 
   const active = state.cards[state.activeCardIndex];
-  if (active) setStatus(`Card ${state.activeCardIndex + 1}/${state.cards.length}: ${active.title}`);
+  if (active?.title) setStatus(`Card ${state.activeCardIndex + 1}/${state.cards.length}: ${active.title}`);
 }
 
 function moveCard(step) {
@@ -255,12 +309,12 @@ function handleCardStep(step) {
 
   state.wheelLocked = true;
   moveCard(step);
-  setTimeout(() => { state.wheelLocked = false; }, 170);
+  setTimeout(() => { state.wheelLocked = false; }, 140);
 }
 
-function attachDeckWheel() {
+function attachDeckControls() {
   els.deck.onwheel = (event) => {
-    if (state.view !== 'cards' || !state.cards.length) return;
+    if (state.view !== 'cards') return;
     event.preventDefault();
     handleCardStep(event.deltaY > 0 ? 1 : -1);
   };
@@ -272,7 +326,7 @@ function renderCards(cards = [], sourceLabel = 'News') {
   els.deck.innerHTML = '';
 
   if (!cards.length) {
-    setStatus('No cards found. Try another source or query.');
+    setStatus('No cards found. Try another source or keyword.');
     return;
   }
 
@@ -282,7 +336,7 @@ function renderCards(cards = [], sourceLabel = 'News') {
 
   els.cardsTitle.textContent = sourceLabel;
   setView('cards');
-  attachDeckWheel();
+  attachDeckControls();
   setActiveCard(0);
 }
 
@@ -314,7 +368,7 @@ function renderArticle(data) {
   els.articleSections.appendChild(block);
 }
 
-async function fetchNewsFromUrl(url, label = 'News') {
+async function fetchNewsFromUrl(url, label = 'Source News') {
   try {
     setStatus('Fetching news cards…');
     const data = await api('/api/news', { url });
@@ -330,11 +384,16 @@ async function fetchBreakingNews() {
 }
 
 async function searchNews(query) {
+  const q = String(query || '').trim();
+  if (!q) return setStatus('Type a search term first.');
+
+  addRecentSearch(q);
+
   try {
-    setStatus('Searching across major feeds…');
-    const data = await api('/api/search', { query });
-    renderCards(data.cards || [], `Search: ${query}`);
-    setStatus(`Found ${data.cards?.length || 0} matching cards.`);
+    setStatus('Searching across sources…');
+    const data = await api('/api/search', { query: q });
+    renderCards(data.cards || [], `Search: ${q}`);
+    setStatus(`Found ${data.cards?.length || 0} cards.`);
   } catch (error) {
     setStatus(error.message);
   }
@@ -342,9 +401,10 @@ async function searchNews(query) {
 
 async function readArticle(url) {
   try {
-    setStatus('Opening full story…');
+    setStatus('Opening article…');
     const data = await api('/api/read', { url });
     renderArticle(data);
+    addRecentArticle({ title: data.title, url: data.canonicalUrl || url, source: data.domain });
     setView('article');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setStatus(`Opened article from ${data.domain}.`);
@@ -356,132 +416,22 @@ async function readArticle(url) {
 async function healthCheck() {
   try {
     await api('/health', null, 'GET');
-    setStatus('Ready. Enter a source or run a news search.');
+    setStatus('Ready. Enter source or search keyword.');
   } catch (error) {
     setStatus(`API unavailable: ${error.message}`);
   }
 }
 
-function stopScan() {
-  if (state.rafId) cancelAnimationFrame(state.rafId);
-  state.rafId = null;
-
-  if (state.stream) state.stream.getTracks().forEach(t => t.stop());
-  state.stream = null;
-  els.scannerPane.classList.add('hidden');
-}
-
-async function startScan() {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    setStatus('Camera unavailable. Use manual URL.');
-    const manual = prompt('Paste URL from QR:');
-    if (!manual) return;
-    const url = normaliseToUrl(manual);
-    if (!url) return setStatus('Invalid URL. Try bbc.com or full https:// URL.');
-    els.urlInput.value = url;
-    previewUrl(url);
-    return;
-  }
-
-  els.scannerPane.classList.remove('hidden');
-
+function loadRecent() {
   try {
-    state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    els.scannerVideo.srcObject = state.stream;
-
-    if (!('BarcodeDetector' in window)) {
-      setStatus('QR detector unavailable. Use manual URL.');
-      return;
-    }
-
-    const detector = new BarcodeDetector({ formats: ['qr_code'] });
-
-    const tick = async () => {
-      if (!state.stream) return;
-
-      try {
-        const matches = await detector.detect(els.scannerVideo);
-        if (matches.length) {
-          const raw = matches[0].rawValue || '';
-          stopScan();
-          const url = normaliseToUrl(raw.trim());
-          if (!url) return setStatus('Invalid URL in QR code.');
-          els.urlInput.value = url;
-          await previewUrl(url);
-          return;
-        }
-      } catch {
-        // keep scanning
-      }
-
-      state.rafId = requestAnimationFrame(tick);
-    };
-
-    tick();
+    state.recentSearches = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]');
+    state.recentArticles = JSON.parse(localStorage.getItem(RECENT_ARTICLE_KEY) || '[]');
   } catch {
-    setStatus('Could not access camera. Use manual URL fallback.');
+    state.recentSearches = [];
+    state.recentArticles = [];
   }
-}
-
-function setupVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    els.voiceBtn.disabled = true;
-    els.voiceBtn.textContent = '🎙 Voice (unsupported)';
-    return;
-  }
-
-  state.recognition = new SR();
-  state.recognition.lang = 'en-GB';
-  state.recognition.continuous = false;
-  state.recognition.interimResults = false;
-
-  state.recognition.onresult = (event) => {
-    const text = event.results[0][0].transcript.toLowerCase().trim();
-    handleVoiceIntent(text);
-  };
-
-  state.recognition.onerror = () => setStatus('Voice input failed. Try again.');
-}
-
-function handleVoiceIntent(text) {
-  setStatus(`Heard: "${text}"`);
-
-  if (text.startsWith('open ')) {
-    const url = normaliseVoiceUrl(text.replace(/^open\s+/, ''));
-    if (!url) return setStatus('Could not parse URL.');
-    els.urlInput.value = url;
-    previewUrl(url);
-    return;
-  }
-
-  if (text === 'breaking news') return fetchBreakingNews();
-  if (text === 'fetch news') {
-    const url = normaliseToUrl(els.urlInput.value.trim());
-    if (!url) return setStatus('Set a valid source URL first.');
-    return fetchNewsFromUrl(url, 'Source News');
-  }
-
-  if (text.startsWith('search ')) {
-    const q = text.replace(/^search\s+/, '').trim();
-    if (!q) return setStatus('Say: search <topic>.');
-    els.searchInput.value = q;
-    return searchNews(q);
-  }
-
-  if (text === 'next card' || text === 'scroll down') return moveCard(1);
-  if (text === 'previous card' || text === 'scroll up') return moveCard(-1);
-
-  if (text === 'read this' || text === 'read card' || text === 'dive in') {
-    const active = state.cards[state.activeCardIndex];
-    if (!active?.url) return setStatus('No active card to read.');
-    return readArticle(active.url);
-  }
-
-  if (text === 'home') return goHomeView();
-  if (text === 'back') return goBackView();
-
-  setStatus('Try: open bbc.com, fetch news, breaking news, next card, read this.');
+  renderRecentSearches();
+  renderRecentArticles();
 }
 
 function bindUi() {
@@ -490,70 +440,51 @@ function bindUi() {
 
   els.previewBtn.addEventListener('click', () => {
     const url = normaliseToUrl(els.urlInput.value.trim());
-    if (!url) return setStatus('Enter a valid URL (e.g. bbc.com or https://bbc.com).');
+    if (!url) return setStatus('Enter valid URL (bbc.com or full https://).');
     els.urlInput.value = url;
     previewUrl(url);
   });
 
   els.fetchFromUrlBtn.addEventListener('click', () => {
     const url = normaliseToUrl(els.urlInput.value.trim());
-    if (!url) return setStatus('Enter a valid source URL first.');
+    if (!url) return setStatus('Enter valid source URL first.');
     els.urlInput.value = url;
     fetchNewsFromUrl(url, 'Source News');
   });
 
-  els.searchBtn.addEventListener('click', () => {
-    const q = els.searchInput.value.trim();
-    if (!q) return setStatus('Type a news query first.');
-    searchNews(q);
-  });
-
+  els.searchBtn.addEventListener('click', () => searchNews(els.searchInput.value));
   els.breakingBtn.addEventListener('click', fetchBreakingNews);
-  els.scanBtn.addEventListener('click', startScan);
-  els.stopScanBtn.addEventListener('click', stopScan);
-
-  els.manualUrlBtn.addEventListener('click', () => {
-    const input = prompt('Paste URL:');
-    if (!input) return;
-    const url = normaliseToUrl(input.trim());
-    if (!url) return setStatus('Invalid URL.');
-    els.urlInput.value = url;
-    previewUrl(url);
-  });
 
   els.openPreviewBtn.addEventListener('click', () => {
-    if (!state.scannedCandidate) return;
-    fetchNewsFromUrl(state.scannedCandidate, 'Source News');
+    if (!state.previewCandidate) return;
+    fetchNewsFromUrl(state.previewCandidate, 'Source News');
   });
 
   els.cancelPreviewBtn.addEventListener('click', () => {
     els.previewPane.classList.add('hidden');
-    state.scannedCandidate = null;
+    state.previewCandidate = null;
     setStatus('Preview cancelled.');
   });
 
-  els.rescanPreviewBtn.addEventListener('click', startScan);
-  els.voiceBtn.addEventListener('click', () => state.recognition?.start());
-  els.prevCardBtn?.addEventListener('click', () => handleCardStep(-1));
-  els.nextCardBtn?.addEventListener('click', () => handleCardStep(1));
-
-  let touchStartY = 0;
-  els.deck?.addEventListener('touchstart', (ev) => {
-    touchStartY = ev.changedTouches?.[0]?.clientY || 0;
-  }, { passive: true });
-
-  els.deck?.addEventListener('touchend', (ev) => {
-    const endY = ev.changedTouches?.[0]?.clientY || 0;
-    const delta = touchStartY - endY;
-    if (Math.abs(delta) < 24) return;
-    handleCardStep(delta > 0 ? 1 : -1);
-  }, { passive: true });
+  els.prevCardBtn.addEventListener('click', () => handleCardStep(-1));
+  els.nextCardBtn.addEventListener('click', () => handleCardStep(1));
 
   window.addEventListener('wheel', (event) => {
     if (state.view !== 'cards') return;
     event.preventDefault();
     handleCardStep(event.deltaY > 0 ? 1 : -1);
   }, { passive: false });
+
+  window.addEventListener('scroll', () => {
+    if (state.view !== 'cards') return;
+    const current = window.scrollY || document.documentElement.scrollTop || 0;
+    const delta = current - state.lastScrollY;
+    if (Math.abs(delta) > 6) {
+      handleCardStep(delta > 0 ? 1 : -1);
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+    state.lastScrollY = 0;
+  }, { passive: true });
 
   window.addEventListener('keydown', (event) => {
     if (state.view !== 'cards') return;
@@ -577,12 +508,15 @@ function bindUi() {
     }
   });
 
-  window.addEventListener('beforeunload', stopScan);
+  window.addEventListener('popstate', (event) => {
+    const view = event.state?.view || 'home';
+    setView(view, { push: false });
+  });
 }
 
 function boot() {
   bindUi();
-  setupVoice();
+  loadRecent();
   setView('home', { push: false });
   history.replaceState({ view: 'home' }, '', '#home');
   healthCheck();
