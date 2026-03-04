@@ -302,6 +302,10 @@ input {
   line-height: 1.47;
 }
 
+.article-chunk--plain p + p {
+  margin-top: .8rem;
+}
+
 .status {
   max-width: 430px;
   margin: .2rem auto 1rem;

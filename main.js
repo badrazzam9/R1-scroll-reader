@@ -298,12 +298,20 @@ function renderArticle(data) {
   }
 
   els.articleSections.innerHTML = '';
-  (data.sections || []).forEach((section, i) => {
-    const block = document.createElement('section');
-    block.className = 'article-chunk';
-    block.innerHTML = `<h4>Section ${i + 1}</h4><p>${escapeHtml(section)}</p>`;
-    els.articleSections.appendChild(block);
-  });
+  const parts = (data.sections || []).filter(Boolean);
+
+  if (!parts.length) {
+    const empty = document.createElement('p');
+    empty.className = 'microcopy';
+    empty.textContent = 'Could not extract article text from this source.';
+    els.articleSections.appendChild(empty);
+    return;
+  }
+
+  const block = document.createElement('section');
+  block.className = 'article-chunk article-chunk--plain';
+  block.innerHTML = parts.map(part => `<p>${escapeHtml(part)}</p>`).join('');
+  els.articleSections.appendChild(block);
 }
 
 async function fetchNewsFromUrl(url, label = 'News') {
