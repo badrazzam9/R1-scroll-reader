@@ -23,6 +23,8 @@ const els = {
   voiceBtn: document.getElementById('voiceBtn'),
   reader: document.getElementById('reader'),
   summaryCard: document.getElementById('summaryCard'),
+  imageCard: document.getElementById('imageCard'),
+  imageGallery: document.getElementById('imageGallery'),
   title: document.getElementById('title'),
   summary: document.getElementById('summary'),
   status: document.getElementById('status')
@@ -99,11 +101,47 @@ async function previewUrl(url) {
   }
 }
 
+function renderImages(images = []) {
+  if (!els.imageCard || !els.imageGallery) return;
+  els.imageGallery.innerHTML = '';
+  if (!images.length) {
+    els.imageCard.classList.add('hidden');
+    return;
+  }
+
+  images.slice(0, 8).forEach((img, i) => {
+    const fig = document.createElement('figure');
+    fig.className = 'image-item';
+
+    const image = document.createElement('img');
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    image.src = img.url;
+    image.alt = img.alt || `Related image ${i + 1}`;
+    image.referrerPolicy = 'no-referrer';
+    image.onerror = () => fig.remove();
+
+    fig.appendChild(image);
+
+    if (img.alt) {
+      const cap = document.createElement('figcaption');
+      cap.textContent = img.alt;
+      fig.appendChild(cap);
+    }
+
+    els.imageGallery.appendChild(fig);
+  });
+
+  if (els.imageGallery.children.length) els.imageCard.classList.remove('hidden');
+  else els.imageCard.classList.add('hidden');
+}
+
 function renderRead(data) {
   lastReadData = data;
   els.summaryCard.classList.remove('hidden');
   els.title.textContent = data.title || data.domain || 'Untitled';
   els.summary.textContent = data.summary || 'No summary available.';
+  renderImages(data.images || []);
   els.reader.innerHTML = '';
   (data.sections || []).forEach((txt, i) => {
     const card = document.createElement('article');
