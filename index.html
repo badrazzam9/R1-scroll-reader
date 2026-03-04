@@ -66,7 +66,13 @@
 
     <section id="viewCards" class="view hidden">
       <header class="subhead card">
-        <h2 id="cardsTitle">Breaking News</h2>
+        <div class="row subhead-row">
+          <h2 id="cardsTitle">Breaking News</h2>
+          <div class="row compact-controls">
+            <button id="prevCardBtn" class="btn">◀</button>
+            <button id="nextCardBtn" class="btn">▶</button>
+          </div>
+        </div>
         <p id="cardsSub" class="microcopy">Scroll wheel to glide through the stack. Press “Dive In” on any card.</p>
       </header>
       <section id="deck" class="deck" aria-label="News cards stack"></section>
@@ -84,6 +90,6 @@
 
   <section id="status" class="status" aria-live="polite"></section>
 
-  <script src="./main.js?v=11"></script>
+  <script src="./main.js?v=13"></script>
 </body>
 </html>

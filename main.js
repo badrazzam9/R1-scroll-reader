@@ -33,6 +33,8 @@ const els = {
 
   cardsTitle: document.getElementById('cardsTitle'),
   cardsSub: document.getElementById('cardsSub'),
+  prevCardBtn: document.getElementById('prevCardBtn'),
+  nextCardBtn: document.getElementById('nextCardBtn'),
   deck: document.getElementById('deck'),
 
   articleTitle: document.getElementById('articleTitle'),
@@ -54,7 +56,7 @@ const state = {
   wheelLocked: false
 };
 
-const BREAKING_NEWS_URL = 'https://news.google.com/rss?hl=en-GB&gl=GB&ceid=GB:en';
+const BREAKING_NEWS_URL = 'https://feeds.bbci.co.uk/news/world/rss.xml';
 
 function setStatus(message) {
   els.status.textContent = message || '';
@@ -178,6 +180,11 @@ function createCardElement(card, index) {
     img.referrerPolicy = 'no-referrer';
     img.onerror = () => img.remove();
     article.appendChild(img);
+  } else {
+    const ph = document.createElement('div');
+    ph.className = 'news-card-image news-card-image--placeholder';
+    ph.textContent = 'Top Story';
+    article.appendChild(ph);
   }
 
   const content = document.createElement('div');
@@ -315,8 +322,14 @@ async function fetchBreakingNews() {
 }
 
 async function searchNews(query) {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-GB&gl=GB&ceid=GB:en`;
-  await fetchNewsFromUrl(url, `Search: ${query}`);
+  try {
+    setStatus('Searching across major feeds…');
+    const data = await api('/api/search', { query });
+    renderCards(data.cards || [], `Search: ${query}`);
+    setStatus(`Found ${data.cards?.length || 0} matching cards.`);
+  } catch (error) {
+    setStatus(error.message);
+  }
 }
 
 async function readArticle(url) {
@@ -513,6 +526,20 @@ function bindUi() {
 
   els.rescanPreviewBtn.addEventListener('click', startScan);
   els.voiceBtn.addEventListener('click', () => state.recognition?.start());
+  els.prevCardBtn?.addEventListener('click', () => handleCardStep(-1));
+  els.nextCardBtn?.addEventListener('click', () => handleCardStep(1));
+
+  let touchStartY = 0;
+  els.deck?.addEventListener('touchstart', (ev) => {
+    touchStartY = ev.changedTouches?.[0]?.clientY || 0;
+  }, { passive: true });
+
+  els.deck?.addEventListener('touchend', (ev) => {
+    const endY = ev.changedTouches?.[0]?.clientY || 0;
+    const delta = touchStartY - endY;
+    if (Math.abs(delta) < 24) return;
+    handleCardStep(delta > 0 ? 1 : -1);
+  }, { passive: true });
 
   window.addEventListener('wheel', (event) => {
     if (state.view !== 'cards') return;
