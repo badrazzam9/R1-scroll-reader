@@ -244,15 +244,29 @@ function handleVoiceIntent(text) {
 
 els.saveWorkerBtn.addEventListener('click', saveWorkerUrl);
 els.healthBtn.addEventListener('click', healthCheck);
-els.previewBtn.addEventListener('click', () => previewUrl(els.urlInput.value.trim()));
-els.readBtn.addEventListener('click', () => readUrl(els.urlInput.value.trim()));
+els.previewBtn.addEventListener('click', () => {
+  const raw = els.urlInput.value.trim();
+  const normalized = normalizeToUrl(raw);
+  if (!normalized) return setStatus('Enter a valid URL (e.g. bbc.com or https://bbc.com).');
+  els.urlInput.value = normalized;
+  previewUrl(normalized);
+});
+els.readBtn.addEventListener('click', () => {
+  const raw = els.urlInput.value.trim();
+  const normalized = normalizeToUrl(raw);
+  if (!normalized) return setStatus('Enter a valid URL (e.g. bbc.com or https://bbc.com).');
+  els.urlInput.value = normalized;
+  readUrl(normalized);
+});
 els.scanBtn.addEventListener('click', startScan);
 els.stopScanBtn.addEventListener('click', stopScan);
 els.manualUrlBtn.addEventListener('click', () => {
   const manual = prompt('Paste URL:');
   if (manual) {
-    els.urlInput.value = manual;
-    previewUrl(manual);
+    const normalized = normalizeToUrl(manual.trim());
+    if (!normalized) return setStatus('Invalid URL. Try bbc.com or full https:// URL.');
+    els.urlInput.value = normalized;
+    previewUrl(normalized);
   }
 });
 els.searchBtn.addEventListener('click', () => {
