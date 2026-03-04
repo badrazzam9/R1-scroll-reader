@@ -7,80 +7,83 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div>
-        <div class="brand">R1 News Fetcher</div>
-        <div class="sub">Headline cards + wheel swipe for Rabbit R1</div>
-      </div>
-      <div class="actions">
-        <button id="voiceBtn" class="btn">🎙 Voice</button>
-        <button id="scanBtn" class="btn btn-primary">📷 Scan QR</button>
-      </div>
-    </header>
+  <nav class="chrome-nav">
+    <button id="navBack" class="nav-btn" title="Back" aria-label="Back">←</button>
+    <button id="navHome" class="nav-btn" title="Home" aria-label="Home">⌂</button>
+    <span id="viewLabel" class="view-label">Home</span>
+  </nav>
 
-    <section class="controls card">
-      <label for="urlInput">News source URL</label>
-      <div class="row">
-        <input id="urlInput" type="url" placeholder="bbc.com, cnn.com, theguardian.com" />
-        <button id="previewBtn" class="btn">Preview</button>
-        <button id="fetchNewsBtn" class="btn btn-primary">Fetch News</button>
-      </div>
+  <main class="app-shell">
+    <section id="viewHome" class="view">
+      <header class="hero">
+        <h1>R1 News Fetcher</h1>
+        <p>Clean headline cards for Rabbit R1 — wheel to browse, tap to read.</p>
+      </header>
 
-      <label for="searchInput">News search</label>
-      <div class="row">
-        <input id="searchInput" type="text" placeholder="e.g. AI regulation UK" />
-        <button id="searchBtn" class="btn">Search News</button>
-      </div>
+      <section class="card controls">
+        <label for="urlInput">News source URL</label>
+        <div class="row">
+          <input id="urlInput" type="url" placeholder="bbc.com, reuters.com, theguardian.com" />
+          <button id="previewBtn" class="btn">Preview</button>
+          <button id="fetchFromUrlBtn" class="btn btn-primary">Fetch News</button>
+        </div>
+
+        <label for="searchInput">News search</label>
+        <div class="row">
+          <input id="searchInput" type="text" placeholder="e.g. AI regulation UK" />
+          <button id="searchBtn" class="btn btn-primary">Search News</button>
+        </div>
+
+        <div class="row top-gap">
+          <button id="breakingBtn" class="btn btn-soft">🌍 Breaking news worldwide</button>
+          <button id="scanBtn" class="btn">📷 Scan QR</button>
+          <button id="voiceBtn" class="btn">🎙 Voice</button>
+        </div>
+      </section>
+
+      <section id="previewPane" class="card hidden" aria-live="polite">
+        <h3>URL Preview</h3>
+        <div><strong>Domain:</strong> <span id="previewDomain">-</span></div>
+        <div class="full-url"><strong>URL:</strong> <span id="previewUrl">-</span></div>
+        <div><strong>Safety:</strong> <span id="previewSafety" class="badge">Unknown</span></div>
+        <div class="row top-gap">
+          <button id="openPreviewBtn" class="btn btn-primary">Fetch from this source</button>
+          <button id="cancelPreviewBtn" class="btn">Cancel</button>
+          <button id="rescanPreviewBtn" class="btn">Rescan</button>
+        </div>
+      </section>
+
+      <section id="scannerPane" class="card hidden">
+        <h3>QR Scanner</h3>
+        <p class="microcopy">Point your camera at a QR code. If camera isn't available, paste URL manually.</p>
+        <video id="scannerVideo" playsinline autoplay muted></video>
+        <div class="row top-gap">
+          <button id="stopScanBtn" class="btn">Stop</button>
+          <button id="manualUrlBtn" class="btn">Manual URL</button>
+        </div>
+      </section>
     </section>
 
-    <section id="previewPane" class="card hidden" aria-live="polite">
-      <h3>URL Preview</h3>
-      <div><strong>Domain:</strong> <span id="previewDomain">-</span></div>
-      <div class="full-url"><strong>URL:</strong> <span id="previewUrl">-</span></div>
-      <div><strong>Safety:</strong> <span id="previewSafety" class="badge">Unknown</span></div>
-      <div class="row top-gap">
-        <button id="openPreviewBtn" class="btn btn-primary">Fetch from this source</button>
-        <button id="cancelPreviewBtn" class="btn">Cancel</button>
-        <button id="rescanPreviewBtn" class="btn">Rescan</button>
-      </div>
+    <section id="viewCards" class="view hidden">
+      <header class="subhead card">
+        <h2 id="cardsTitle">Breaking News</h2>
+        <p id="cardsSub" class="microcopy">Scroll wheel to glide through the stack. Press “Read Full Story” on any card.</p>
+      </header>
+      <section id="deck" class="deck" aria-label="News cards stack"></section>
     </section>
 
-    <section id="newsDeckSection" class="card hidden">
-      <h3>Top news cards</h3>
-      <p class="microcopy">Use Rabbit scrollwheel (or mouse wheel) to move card-by-card.</p>
-      <div id="newsDeck" class="news-deck"></div>
+    <section id="viewArticle" class="view hidden">
+      <article class="article-shell card">
+        <h2 id="articleTitle">Article</h2>
+        <p id="articleSummary" class="article-summary"></p>
+        <a id="articleSource" class="source-link" href="#" target="_blank" rel="noopener noreferrer">Open original source ↗</a>
+        <div id="articleSections" class="article-sections"></div>
+      </article>
     </section>
+  </main>
 
-    <section id="summaryCard" class="card hidden">
-      <div class="row">
-        <button id="backToCardsBtn" class="btn">← Back to cards</button>
-      </div>
-      <h2 id="title">No article loaded yet</h2>
-      <p id="summary" class="summary"></p>
-      <a id="sourceLink" class="source-link" href="#" target="_blank" rel="noopener noreferrer">Open original page ↗</a>
-    </section>
+  <section id="status" class="status" aria-live="polite"></section>
 
-    <section id="imageCard" class="card hidden">
-      <h3>Article images</h3>
-      <div id="imageGallery" class="image-gallery"></div>
-    </section>
-
-    <main id="reader" class="reader"></main>
-
-    <section id="scannerPane" class="card hidden">
-      <h3>QR Scanner</h3>
-      <p class="microcopy">Point your camera at a QR code. If camera isn't available, paste URL manually.</p>
-      <video id="scannerVideo" playsinline autoplay muted></video>
-      <div class="row top-gap">
-        <button id="stopScanBtn" class="btn">Stop</button>
-        <button id="manualUrlBtn" class="btn">Manual URL</button>
-      </div>
-    </section>
-
-    <section id="status" class="status" aria-live="polite"></section>
-  </div>
-
-  <script src="./main.js?v=9"></script>
+  <script src="./main.js?v=10"></script>
 </body>
 </html>

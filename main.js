@@ -1,16 +1,23 @@
 const API_BASE = (localStorage.getItem('r1_api_base') || 'https://r1-scroll-reader-worker.swordandscroll.workers.dev').replace(/\/$/, '');
 
 const els = {
+  navBack: document.getElementById('navBack'),
+  navHome: document.getElementById('navHome'),
+  viewLabel: document.getElementById('viewLabel'),
+
+  viewHome: document.getElementById('viewHome'),
+  viewCards: document.getElementById('viewCards'),
+  viewArticle: document.getElementById('viewArticle'),
+
   urlInput: document.getElementById('urlInput'),
   previewBtn: document.getElementById('previewBtn'),
-  fetchNewsBtn: document.getElementById('fetchNewsBtn'),
+  fetchFromUrlBtn: document.getElementById('fetchFromUrlBtn'),
   searchInput: document.getElementById('searchInput'),
   searchBtn: document.getElementById('searchBtn'),
+  breakingBtn: document.getElementById('breakingBtn'),
   scanBtn: document.getElementById('scanBtn'),
-  stopScanBtn: document.getElementById('stopScanBtn'),
-  manualUrlBtn: document.getElementById('manualUrlBtn'),
-  scannerPane: document.getElementById('scannerPane'),
-  scannerVideo: document.getElementById('scannerVideo'),
+  voiceBtn: document.getElementById('voiceBtn'),
+
   previewPane: document.getElementById('previewPane'),
   previewDomain: document.getElementById('previewDomain'),
   previewUrl: document.getElementById('previewUrl'),
@@ -18,75 +25,116 @@ const els = {
   openPreviewBtn: document.getElementById('openPreviewBtn'),
   cancelPreviewBtn: document.getElementById('cancelPreviewBtn'),
   rescanPreviewBtn: document.getElementById('rescanPreviewBtn'),
-  voiceBtn: document.getElementById('voiceBtn'),
-  newsDeckSection: document.getElementById('newsDeckSection'),
-  newsDeck: document.getElementById('newsDeck'),
-  summaryCard: document.getElementById('summaryCard'),
-  imageCard: document.getElementById('imageCard'),
-  imageGallery: document.getElementById('imageGallery'),
-  reader: document.getElementById('reader'),
-  title: document.getElementById('title'),
-  summary: document.getElementById('summary'),
-  sourceLink: document.getElementById('sourceLink'),
-  backToCardsBtn: document.getElementById('backToCardsBtn'),
+
+  scannerPane: document.getElementById('scannerPane'),
+  scannerVideo: document.getElementById('scannerVideo'),
+  stopScanBtn: document.getElementById('stopScanBtn'),
+  manualUrlBtn: document.getElementById('manualUrlBtn'),
+
+  cardsTitle: document.getElementById('cardsTitle'),
+  cardsSub: document.getElementById('cardsSub'),
+  deck: document.getElementById('deck'),
+
+  articleTitle: document.getElementById('articleTitle'),
+  articleSummary: document.getElementById('articleSummary'),
+  articleSource: document.getElementById('articleSource'),
+  articleSections: document.getElementById('articleSections'),
+
   status: document.getElementById('status')
 };
 
-let scannedCandidate = null;
-let stream = null;
-let rafId = null;
-let recognition = null;
-let newsCards = [];
-let currentCardIndex = 0;
-let wheelLocked = false;
-let lastReadData = null;
+const state = {
+  view: 'home',
+  cards: [],
+  activeCardIndex: 0,
+  scannedCandidate: null,
+  stream: null,
+  rafId: null,
+  recognition: null,
+  wheelLocked: false
+};
 
-function setStatus(msg) {
-  els.status.textContent = msg || '';
+const BREAKING_NEWS_URL = 'https://news.google.com/topstories?hl=en-GB&gl=GB&ceid=GB:en';
+
+function setStatus(message) {
+  els.status.textContent = message || '';
 }
 
-function normalizeToUrl(input) {
+function escapeHtml(s = '') {
+  return s.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+function normaliseToUrl(input) {
   if (!input) return null;
-  const cleaned = input.trim();
-  if (/^https?:\/\//i.test(cleaned)) return cleaned;
-  if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(cleaned)) return `https://${cleaned}`;
+  const value = input.trim();
+  if (/^https?:\/\//i.test(value)) return value;
+  if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(value)) return `https://${value}`;
   return null;
 }
 
-function normalizeVoiceUrl(input) {
+function normaliseVoiceUrl(input) {
   if (!input) return null;
   const spoken = input
     .replace(/\s+dot\s+/gi, '.')
     .replace(/\s+slash\s+/gi, '/')
     .replace(/\s+/g, '')
     .trim();
-  return normalizeToUrl(spoken);
+  return normaliseToUrl(spoken);
 }
 
 function looksSafeUrl(urlStr) {
   try {
     const u = new URL(urlStr);
     if (!['http:', 'https:'].includes(u.protocol)) return { ok: false, reason: 'Only http/https allowed' };
-    const host = u.hostname.toLowerCase();
-    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return { ok: false, reason: 'Localhost blocked' };
-    if (/^10\.|^192\.168\.|^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return { ok: false, reason: 'Private IP blocked' };
-    if (/^169\.254\./.test(host)) return { ok: false, reason: 'Link-local blocked' };
-    return { ok: true, reason: 'Looks safe' };
+    const h = u.hostname.toLowerCase();
+    if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return { ok: false, reason: 'Localhost blocked' };
+    if (/^10\.|^192\.168\.|^172\.(1[6-9]|2\d|3[0-1])\./.test(h)) return { ok: false, reason: 'Private IP blocked' };
+    if (/^169\.254\./.test(h)) return { ok: false, reason: 'Link-local blocked' };
+    return { ok: true };
   } catch {
     return { ok: false, reason: 'Invalid URL' };
   }
 }
 
 async function api(path, payload, method = 'POST') {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: method === 'GET' ? undefined : JSON.stringify(payload || {})
   });
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
   return data;
+}
+
+function setView(view, { push = true } = {}) {
+  state.view = view;
+
+  els.viewHome.classList.toggle('hidden', view !== 'home');
+  els.viewCards.classList.toggle('hidden', view !== 'cards');
+  els.viewArticle.classList.toggle('hidden', view !== 'article');
+
+  const labels = {
+    home: 'Home',
+    cards: 'News Cards',
+    article: 'Article'
+  };
+  els.viewLabel.textContent = labels[view] || 'Home';
+  els.navBack.disabled = view === 'home';
+
+  if (push) {
+    history.pushState({ view }, '', `#${view}`);
+  }
+}
+
+function goBackView() {
+  if (state.view === 'article') return setView('cards');
+  if (state.view === 'cards') return setView('home');
+}
+
+function goHomeView() {
+  setView('home');
 }
 
 function renderPreview(data) {
@@ -95,14 +143,14 @@ function renderPreview(data) {
   els.previewUrl.textContent = data.url || '-';
   els.previewSafety.textContent = data.safe ? 'Safe' : 'Blocked';
   els.previewSafety.className = `badge ${data.safe ? 'safe' : 'blocked'}`;
-  scannedCandidate = data.url;
+  state.scannedCandidate = data.url;
 }
 
 async function previewUrl(url) {
-  const localSafe = looksSafeUrl(url);
-  if (!localSafe.ok) {
+  const safe = looksSafeUrl(url);
+  if (!safe.ok) {
     renderPreview({ url, domain: '-', safe: false });
-    setStatus(localSafe.reason);
+    setStatus(safe.reason);
     return;
   }
 
@@ -110,12 +158,12 @@ async function previewUrl(url) {
     const data = await api('/api/preview', { url });
     renderPreview(data);
     setStatus('Preview ready.');
-  } catch (e) {
-    setStatus(e.message);
+  } catch (error) {
+    setStatus(error.message);
   }
 }
 
-function createNewsCardElement(card, index) {
+function createCardElement(card, index) {
   const article = document.createElement('article');
   article.className = 'news-card';
   article.dataset.index = String(index);
@@ -123,10 +171,10 @@ function createNewsCardElement(card, index) {
   if (card.image?.url) {
     const img = document.createElement('img');
     img.className = 'news-card-image';
-    img.loading = 'lazy';
-    img.decoding = 'async';
     img.src = card.image.url;
     img.alt = card.image.alt || card.title || `News image ${index + 1}`;
+    img.loading = 'lazy';
+    img.decoding = 'async';
     img.referrerPolicy = 'no-referrer';
     img.onerror = () => img.remove();
     article.appendChild(img);
@@ -135,238 +183,213 @@ function createNewsCardElement(card, index) {
   const content = document.createElement('div');
   content.className = 'news-card-content';
 
-  const h4 = document.createElement('h4');
-  h4.textContent = card.title || `Story ${index + 1}`;
-  content.appendChild(h4);
+  const title = document.createElement('h3');
+  title.textContent = card.title || `Story ${index + 1}`;
 
-  const p = document.createElement('p');
-  p.textContent = card.snippet || '';
-  content.appendChild(p);
-
-  const actions = document.createElement('div');
-  actions.className = 'row';
+  const snippet = document.createElement('p');
+  snippet.textContent = card.snippet || 'Open this story for the full cleaned article.';
 
   const readBtn = document.createElement('button');
-  readBtn.className = 'btn btn-primary';
-  readBtn.textContent = 'Read this';
+  readBtn.className = 'btn btn-primary read-btn';
+  readBtn.textContent = 'Dive In';
   readBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
     if (card.url) readArticle(card.url);
   });
 
-  const openBtn = document.createElement('button');
-  openBtn.className = 'btn';
-  openBtn.textContent = 'Open source';
-  openBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    if (card.url) window.open(card.url, '_blank', 'noopener,noreferrer');
-  });
-
-  actions.append(readBtn, openBtn);
-  content.appendChild(actions);
-
+  content.append(title, snippet, readBtn);
   article.appendChild(content);
 
-  article.addEventListener('click', () => {
-    setActiveCard(index);
-  });
-
+  article.addEventListener('click', () => setActiveCard(index));
   return article;
 }
 
-function setActiveCard(nextIndex) {
-  const cards = [...els.newsDeck.querySelectorAll('.news-card')];
+function setActiveCard(index) {
+  const cards = [...els.deck.querySelectorAll('.news-card')];
   if (!cards.length) return;
-  currentCardIndex = Math.max(0, Math.min(nextIndex, cards.length - 1));
 
-  cards.forEach((c, i) => c.classList.toggle('active', i === currentCardIndex));
-  cards[currentCardIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  state.activeCardIndex = Math.max(0, Math.min(index, cards.length - 1));
 
-  const active = newsCards[currentCardIndex];
-  if (active?.title) setStatus(`Card ${currentCardIndex + 1}/${newsCards.length}: ${active.title}`);
+  cards.forEach((cardEl, i) => {
+    const diff = i - state.activeCardIndex;
+    const abs = Math.abs(diff);
+
+    if (abs > 3) {
+      cardEl.classList.add('hide');
+      cardEl.style.pointerEvents = 'none';
+      return;
+    }
+
+    const y = diff * 62;
+    const scale = 1 - Math.min(abs * 0.07, 0.21);
+    const opacity = diff === 0 ? 1 : Math.max(0.2, 1 - abs * 0.27);
+
+    cardEl.classList.remove('hide');
+    cardEl.classList.toggle('is-active', diff === 0);
+    cardEl.style.transform = `translate(-50%, calc(-50% + ${y}px)) scale(${scale})`;
+    cardEl.style.opacity = String(opacity);
+    cardEl.style.zIndex = String(100 - abs);
+    cardEl.style.pointerEvents = diff === 0 ? 'auto' : 'none';
+  });
+
+  const active = state.cards[state.activeCardIndex];
+  if (active) setStatus(`Card ${state.activeCardIndex + 1}/${state.cards.length}: ${active.title}`);
 }
 
-function moveCard(direction) {
-  setActiveCard(currentCardIndex + direction);
+function moveCard(step) {
+  setActiveCard(state.activeCardIndex + step);
 }
 
-function attachWheelCardSwipe() {
-  if (!els.newsDeck) return;
-  els.newsDeck.onwheel = (event) => {
-    if (!newsCards.length) return;
+function attachDeckWheel() {
+  els.deck.onwheel = (event) => {
+    if (state.view !== 'cards' || !state.cards.length) return;
     event.preventDefault();
-    if (wheelLocked) return;
-    wheelLocked = true;
+    if (state.wheelLocked) return;
 
+    state.wheelLocked = true;
     moveCard(event.deltaY > 0 ? 1 : -1);
-    setTimeout(() => {
-      wheelLocked = false;
-    }, 260);
+    setTimeout(() => { state.wheelLocked = false; }, 190);
   };
 }
 
-function renderNewsCards(cards = []) {
-  newsCards = cards;
-  currentCardIndex = 0;
-  els.newsDeck.innerHTML = '';
+function renderCards(cards = [], sourceLabel = 'News') {
+  state.cards = cards;
+  state.activeCardIndex = 0;
+  els.deck.innerHTML = '';
 
   if (!cards.length) {
-    els.newsDeckSection.classList.add('hidden');
-    setStatus('No news cards found from this source.');
+    setStatus('No cards found. Try another source or query.');
     return;
   }
 
   cards.forEach((card, index) => {
-    els.newsDeck.appendChild(createNewsCardElement(card, index));
+    els.deck.appendChild(createCardElement(card, index));
   });
 
-  els.newsDeckSection.classList.remove('hidden');
-  attachWheelCardSwipe();
+  els.cardsTitle.textContent = sourceLabel;
+  setView('cards');
+  attachDeckWheel();
   setActiveCard(0);
 }
 
-function renderImages(images = []) {
-  els.imageGallery.innerHTML = '';
-  if (!images.length) {
-    els.imageCard.classList.add('hidden');
-    return;
-  }
-
-  images.slice(0, 8).forEach((img, i) => {
-    const fig = document.createElement('figure');
-    fig.className = 'image-item';
-
-    const image = document.createElement('img');
-    image.loading = 'lazy';
-    image.decoding = 'async';
-    image.src = img.url;
-    image.alt = img.alt || `Related image ${i + 1}`;
-    image.referrerPolicy = 'no-referrer';
-    image.onerror = () => fig.remove();
-    fig.appendChild(image);
-
-    if (img.alt) {
-      const cap = document.createElement('figcaption');
-      cap.textContent = img.alt;
-      fig.appendChild(cap);
-    }
-
-    els.imageGallery.appendChild(fig);
-  });
-
-  if (els.imageGallery.children.length) els.imageCard.classList.remove('hidden');
-  else els.imageCard.classList.add('hidden');
-}
-
-function escapeHtml(s = '') {
-  return s.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-}
-
 function renderArticle(data) {
-  lastReadData = data;
-  els.summaryCard.classList.remove('hidden');
-  els.title.textContent = data.title || data.domain || 'Untitled';
-  els.summary.textContent = data.summary || 'No summary available.';
+  els.articleTitle.textContent = data.title || 'Article';
+  els.articleSummary.textContent = data.summary || '';
 
   if (data.canonicalUrl) {
-    els.sourceLink.href = data.canonicalUrl;
-    els.sourceLink.classList.remove('hidden');
+    els.articleSource.href = data.canonicalUrl;
+    els.articleSource.classList.remove('hidden');
   } else {
-    els.sourceLink.classList.add('hidden');
+    els.articleSource.classList.add('hidden');
   }
 
-  renderImages(data.images || []);
-
-  els.reader.innerHTML = '';
-  (data.sections || []).forEach((txt, i) => {
-    const section = document.createElement('article');
-    section.className = 'section-card';
-    section.id = `section-${i + 1}`;
-    section.innerHTML = `<h4>Section ${i + 1}</h4><p>${escapeHtml(txt)}</p>`;
-    els.reader.appendChild(section);
+  els.articleSections.innerHTML = '';
+  (data.sections || []).forEach((section, i) => {
+    const block = document.createElement('section');
+    block.className = 'article-chunk';
+    block.innerHTML = `<h4>Section ${i + 1}</h4><p>${escapeHtml(section)}</p>`;
+    els.articleSections.appendChild(block);
   });
 }
 
-async function fetchNews(url) {
+async function fetchNewsFromUrl(url, label = 'News') {
   try {
+    setStatus('Fetching news cards…');
     const data = await api('/api/news', { url });
-    renderNewsCards(data.cards || []);
-    setStatus(`Fetched ${data.cards?.length || 0} cards from ${data.domain}. Use wheel to swipe.`);
-  } catch (e) {
-    setStatus(e.message);
+    renderCards(data.cards || [], label || data.domain || 'News');
+    setStatus(`Fetched ${data.cards?.length || 0} cards from ${data.domain}.`);
+  } catch (error) {
+    setStatus(error.message);
   }
+}
+
+async function fetchBreakingNews() {
+  await fetchNewsFromUrl(BREAKING_NEWS_URL, 'Breaking News Worldwide');
+}
+
+async function searchNews(query) {
+  const url = `https://news.google.com/search?q=${encodeURIComponent(query)}&hl=en-GB&gl=GB&ceid=GB:en`;
+  await fetchNewsFromUrl(url, `Search: ${query}`);
 }
 
 async function readArticle(url) {
   try {
-    setStatus('Loading article…');
+    setStatus('Opening full story…');
     const data = await api('/api/read', { url });
     renderArticle(data);
-    els.summaryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setStatus(`Loaded article from ${data.domain}.`);
-  } catch (e) {
-    setStatus(e.message);
+    setView('article');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setStatus(`Opened article from ${data.domain}.`);
+  } catch (error) {
+    setStatus(error.message);
   }
 }
 
 async function healthCheck() {
   try {
     await api('/health', null, 'GET');
-    setStatus('Connected. Enter a source and fetch news cards.');
-  } catch (e) {
-    setStatus(`API unavailable: ${e.message}`);
+    setStatus('Ready. Enter a source or run a news search.');
+  } catch (error) {
+    setStatus(`API unavailable: ${error.message}`);
   }
 }
 
 function stopScan() {
-  if (rafId) cancelAnimationFrame(rafId);
-  rafId = null;
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  stream = null;
+  if (state.rafId) cancelAnimationFrame(state.rafId);
+  state.rafId = null;
+
+  if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+  state.stream = null;
   els.scannerPane.classList.add('hidden');
 }
 
 async function startScan() {
   if (!navigator.mediaDevices?.getUserMedia) {
     setStatus('Camera unavailable. Use manual URL.');
-    const manual = prompt('Paste URL from QR code:');
+    const manual = prompt('Paste URL from QR:');
     if (!manual) return;
-    const normalized = normalizeToUrl(manual.trim());
-    if (!normalized) return setStatus('Invalid URL. Try bbc.com or full https:// URL.');
-    els.urlInput.value = normalized;
-    previewUrl(normalized);
+    const url = normaliseToUrl(manual);
+    if (!url) return setStatus('Invalid URL. Try bbc.com or full https:// URL.');
+    els.urlInput.value = url;
+    previewUrl(url);
     return;
   }
 
   els.scannerPane.classList.remove('hidden');
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    els.scannerVideo.srcObject = stream;
 
-    if ('BarcodeDetector' in window) {
-      const detector = new BarcodeDetector({ formats: ['qr_code'] });
-      const tick = async () => {
-        if (!stream) return;
-        try {
-          const barcodes = await detector.detect(els.scannerVideo);
-          if (barcodes.length) {
-            const value = barcodes[0].rawValue;
-            stopScan();
-            const normalized = normalizeToUrl(value.trim());
-            if (!normalized) return setStatus('Invalid URL from QR code.');
-            els.urlInput.value = normalized;
-            await previewUrl(normalized);
-            return;
-          }
-        } catch {
-          // keep scanning
-        }
-        rafId = requestAnimationFrame(tick);
-      };
-      tick();
-    } else {
-      setStatus('QR detector unavailable. Use Manual URL.');
+  try {
+    state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    els.scannerVideo.srcObject = state.stream;
+
+    if (!('BarcodeDetector' in window)) {
+      setStatus('QR detector unavailable. Use manual URL.');
+      return;
     }
+
+    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+
+    const tick = async () => {
+      if (!state.stream) return;
+
+      try {
+        const matches = await detector.detect(els.scannerVideo);
+        if (matches.length) {
+          const raw = matches[0].rawValue || '';
+          stopScan();
+          const url = normaliseToUrl(raw.trim());
+          if (!url) return setStatus('Invalid URL in QR code.');
+          els.urlInput.value = url;
+          await previewUrl(url);
+          return;
+        }
+      } catch {
+        // keep scanning
+      }
+
+      state.rafId = requestAnimationFrame(tick);
+    };
+
+    tick();
   } catch {
     setStatus('Could not access camera. Use manual URL fallback.');
   }
@@ -380,122 +403,119 @@ function setupVoice() {
     return;
   }
 
-  recognition = new SR();
-  recognition.lang = 'en-GB';
-  recognition.continuous = false;
-  recognition.interimResults = false;
+  state.recognition = new SR();
+  state.recognition.lang = 'en-GB';
+  state.recognition.continuous = false;
+  state.recognition.interimResults = false;
 
-  recognition.onresult = (e) => {
-    const text = e.results[0][0].transcript.toLowerCase().trim();
+  state.recognition.onresult = (event) => {
+    const text = event.results[0][0].transcript.toLowerCase().trim();
     handleVoiceIntent(text);
   };
 
-  recognition.onerror = () => setStatus('Voice input failed. Try again.');
+  state.recognition.onerror = () => setStatus('Voice input failed. Try again.');
 }
 
 function handleVoiceIntent(text) {
   setStatus(`Heard: "${text}"`);
 
   if (text.startsWith('open ')) {
-    const target = text.replace(/^open\s+/, '');
-    const url = normalizeVoiceUrl(target);
-    if (!url) return setStatus('Could not parse URL to open.');
+    const url = normaliseVoiceUrl(text.replace(/^open\s+/, ''));
+    if (!url) return setStatus('Could not parse URL.');
     els.urlInput.value = url;
     previewUrl(url);
     return;
   }
 
-  if (text === 'fetch news' || text === 'get news') {
-    const url = normalizeToUrl(els.urlInput.value.trim());
+  if (text === 'breaking news') return fetchBreakingNews();
+  if (text === 'fetch news') {
+    const url = normaliseToUrl(els.urlInput.value.trim());
     if (!url) return setStatus('Set a valid source URL first.');
-    fetchNews(url);
-    return;
+    return fetchNewsFromUrl(url, 'Source News');
   }
 
   if (text.startsWith('search ')) {
     const q = text.replace(/^search\s+/, '').trim();
     if (!q) return setStatus('Say: search <topic>.');
     els.searchInput.value = q;
-    const url = `https://news.google.com/search?q=${encodeURIComponent(q)}`;
-    els.urlInput.value = url;
-    fetchNews(url);
-    return;
+    return searchNews(q);
   }
 
-  if (text === 'next card') return moveCard(1);
-  if (text === 'previous card' || text === 'back card') return moveCard(-1);
+  if (text === 'next card' || text === 'scroll down') return moveCard(1);
+  if (text === 'previous card' || text === 'scroll up') return moveCard(-1);
 
-  if (text === 'read card' || text === 'read this') {
-    const card = newsCards[currentCardIndex];
-    if (!card?.url) return setStatus('No active card selected.');
-    readArticle(card.url);
-    return;
+  if (text === 'read this' || text === 'read card' || text === 'dive in') {
+    const active = state.cards[state.activeCardIndex];
+    if (!active?.url) return setStatus('No active card to read.');
+    return readArticle(active.url);
   }
 
-  if (text === 'scroll down') return moveCard(1);
-  if (text === 'scroll up') return moveCard(-1);
+  if (text === 'home') return goHomeView();
+  if (text === 'back') return goBackView();
 
-  if (text === 'summarize this') {
-    if (!lastReadData) return setStatus('No article loaded yet.');
-    els.summaryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    return;
-  }
-
-  setStatus('Try: open bbc.com, fetch news, next card, read card, search AI regulation UK.');
+  setStatus('Try: open bbc.com, fetch news, breaking news, next card, read this.');
 }
 
-els.previewBtn.addEventListener('click', () => {
-  const url = normalizeToUrl(els.urlInput.value.trim());
-  if (!url) return setStatus('Enter a valid URL (e.g. bbc.com or https://bbc.com).');
-  els.urlInput.value = url;
-  previewUrl(url);
-});
+function bindUi() {
+  els.navBack.addEventListener('click', goBackView);
+  els.navHome.addEventListener('click', goHomeView);
 
-els.fetchNewsBtn.addEventListener('click', () => {
-  const url = normalizeToUrl(els.urlInput.value.trim());
-  if (!url) return setStatus('Enter a valid URL first.');
-  els.urlInput.value = url;
-  fetchNews(url);
-});
+  els.previewBtn.addEventListener('click', () => {
+    const url = normaliseToUrl(els.urlInput.value.trim());
+    if (!url) return setStatus('Enter a valid URL (e.g. bbc.com or https://bbc.com).');
+    els.urlInput.value = url;
+    previewUrl(url);
+  });
 
-els.searchBtn.addEventListener('click', () => {
-  const q = els.searchInput.value.trim();
-  if (!q) return;
-  const url = `https://news.google.com/search?q=${encodeURIComponent(q)}`;
-  els.urlInput.value = url;
-  fetchNews(url);
-});
+  els.fetchFromUrlBtn.addEventListener('click', () => {
+    const url = normaliseToUrl(els.urlInput.value.trim());
+    if (!url) return setStatus('Enter a valid source URL first.');
+    els.urlInput.value = url;
+    fetchNewsFromUrl(url, 'Source News');
+  });
 
-els.scanBtn.addEventListener('click', startScan);
-els.stopScanBtn.addEventListener('click', stopScan);
+  els.searchBtn.addEventListener('click', () => {
+    const q = els.searchInput.value.trim();
+    if (!q) return setStatus('Type a news query first.');
+    searchNews(q);
+  });
 
-els.manualUrlBtn.addEventListener('click', () => {
-  const manual = prompt('Paste URL:');
-  if (!manual) return;
-  const normalized = normalizeToUrl(manual.trim());
-  if (!normalized) return setStatus('Invalid URL. Try bbc.com or full https:// URL.');
-  els.urlInput.value = normalized;
-  previewUrl(normalized);
-});
+  els.breakingBtn.addEventListener('click', fetchBreakingNews);
+  els.scanBtn.addEventListener('click', startScan);
+  els.stopScanBtn.addEventListener('click', stopScan);
 
-els.openPreviewBtn.addEventListener('click', () => {
-  if (!scannedCandidate) return;
-  fetchNews(scannedCandidate);
-});
+  els.manualUrlBtn.addEventListener('click', () => {
+    const input = prompt('Paste URL:');
+    if (!input) return;
+    const url = normaliseToUrl(input.trim());
+    if (!url) return setStatus('Invalid URL.');
+    els.urlInput.value = url;
+    previewUrl(url);
+  });
 
-els.backToCardsBtn?.addEventListener('click', () => {
-  els.newsDeckSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
+  els.openPreviewBtn.addEventListener('click', () => {
+    if (!state.scannedCandidate) return;
+    fetchNewsFromUrl(state.scannedCandidate, 'Source News');
+  });
 
-els.cancelPreviewBtn.addEventListener('click', () => {
-  els.previewPane.classList.add('hidden');
-  scannedCandidate = null;
-  setStatus('Preview cancelled.');
-});
+  els.cancelPreviewBtn.addEventListener('click', () => {
+    els.previewPane.classList.add('hidden');
+    state.scannedCandidate = null;
+    setStatus('Preview cancelled.');
+  });
 
-els.rescanPreviewBtn.addEventListener('click', startScan);
-els.voiceBtn.addEventListener('click', () => recognition?.start());
+  els.rescanPreviewBtn.addEventListener('click', startScan);
+  els.voiceBtn.addEventListener('click', () => state.recognition?.start());
 
-window.addEventListener('beforeunload', stopScan);
-setupVoice();
-healthCheck();
+  window.addEventListener('beforeunload', stopScan);
+}
+
+function boot() {
+  bindUi();
+  setupVoice();
+  setView('home', { push: false });
+  history.replaceState({ view: 'home' }, '', '#home');
+  healthCheck();
+}
+
+boot();
