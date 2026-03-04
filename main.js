@@ -28,6 +28,7 @@ const els = {
   title: document.getElementById('title'),
   summary: document.getElementById('summary'),
   sourceLink: document.getElementById('sourceLink'),
+  backToCardsBtn: document.getElementById('backToCardsBtn'),
   status: document.getElementById('status')
 };
 
@@ -298,8 +299,10 @@ async function fetchNews(url) {
 
 async function readArticle(url) {
   try {
+    setStatus('Loading article…');
     const data = await api('/api/read', { url });
     renderArticle(data);
+    els.summaryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setStatus(`Loaded article from ${data.domain}.`);
   } catch (e) {
     setStatus(e.message);
@@ -478,6 +481,10 @@ els.manualUrlBtn.addEventListener('click', () => {
 els.openPreviewBtn.addEventListener('click', () => {
   if (!scannedCandidate) return;
   fetchNews(scannedCandidate);
+});
+
+els.backToCardsBtn?.addEventListener('click', () => {
+  els.newsDeckSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 els.cancelPreviewBtn.addEventListener('click', () => {
