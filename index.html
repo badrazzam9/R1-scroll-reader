@@ -35,11 +35,12 @@
       <section class="card">
         <h3>🌍 By Region</h3>
         <div id="regionList" class="region-grid"></div>
+        <button id="regionToggle" class="region-toggle">More regions ▾</button>
       </section>
 
       <section class="card">
         <h3>⚡ Breaking News</h3>
-        <div id="breakingDeck" class="deck" aria-label="Breaking news cards"></div>
+        <div id="breakingDeck" class="mini-deck"></div>
         <div id="breakingLoading" class="microcopy" style="text-align:center;padding:.3rem 0">Loading…</div>
       </section>
 
@@ -55,11 +56,13 @@
     </section>
 
     <section id="viewCards" class="view hidden">
+      <div id="cardCounter" class="card-counter"></div>
       <section id="deck" class="deck" aria-label="News cards stack"></section>
     </section>
 
     <section id="viewArticle" class="view hidden">
       <article class="article-shell card">
+        <img id="articleImage" class="article-lead-image hidden" alt="" />
         <h2 id="articleTitle">Article</h2>
         <div id="articleSections" class="article-sections"></div>
         <a id="articleSource" class="source-link source-link-bottom" href="#" target="_blank"
@@ -70,7 +73,7 @@
 
   <section id="status" class="status" aria-live="polite"></section>
 
-  <script src="./main.js?v=22"></script>
+  <script src="./main.js?v=23"></script>
 </body>
 
 </html>
