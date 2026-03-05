@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   R1 News Fetcher v24 — main.js
+   R1 News Fetcher v26 — main.js
    ═══════════════════════════════════════════════ */
 
 const API_BASE = (localStorage.getItem('r1_api_base') || 'https://r1-scroll-reader-worker.swordandscroll.workers.dev').replace(/\/$/, '');
@@ -8,6 +8,22 @@ const BREAKING_NEWS_URL = 'https://feeds.bbci.co.uk/news/world/rss.xml';
 const RECENT_SEARCH_KEY = 'r1_recent_searches_v1';
 const RECENT_ARTICLE_KEY = 'r1_recent_articles_v1';
 const ARTICLE_FONT_KEY = 'r1_article_font_scale_v1';
+
+/* ── Paywall domain blocklist ── */
+const PAYWALL_DOMAINS = [
+  'nytimes.com', 'wsj.com', 'ft.com', 'washingtonpost.com',
+  'economist.com', 'bloomberg.com', 'thetimes.co.uk', 'telegraph.co.uk',
+  'theathletic.com', 'barrons.com', 'hbr.org', 'newyorker.com',
+  'wired.com', 'theatlantic.com', 'foreignpolicy.com', 'foreignaffairs.com',
+  'medium.com', 'substack.com'
+];
+
+function isPaywalled(url) {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '');
+    return PAYWALL_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
+  } catch { return false; }
+}
 
 /* ── Region / country RSS feeds ── */
 const REGIONS = [
@@ -52,9 +68,6 @@ const els = {
   breakingDeck: document.getElementById('breakingDeck'),
   breakingLoading: document.getElementById('breakingLoading'),
 
-  recentSearches: document.getElementById('recentSearches'),
-  recentArticles: document.getElementById('recentArticles'),
-
   cardCounter: document.getElementById('cardCounter'),
   deck: document.getElementById('deck'),
 
@@ -71,11 +84,11 @@ const state = {
   view: 'home',
   cards: [],
   activeCardIndex: 0,
-  recentSearches: [],
-  recentArticles: [],
   articleFontScale: 0.72,
   regionsExpanded: false,
-  currentAbort: null  // #15 cancel in-flight
+  breakingCards: [],
+  breakingIndex: 0,
+  currentAbort: null
 };
 
 /* ═══ Status / Loading ═══ */
@@ -256,72 +269,7 @@ function changeArticleFont(delta) {
   setStatus(`Text size: ${Math.round(state.articleFontScale * 100)}%`);
 }
 
-/* ═══ Recents ═══ */
-function saveRecent() {
-  storageSave(RECENT_SEARCH_KEY, state.recentSearches.slice(0, 8));
-  storageSave(RECENT_ARTICLE_KEY, state.recentArticles.slice(0, 10));
-}
-
-function addRecentSearch(text) {
-  const q = String(text || '').trim();
-  if (!q) return;
-  state.recentSearches = [q, ...state.recentSearches.filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0, 8);
-  saveRecent();
-  renderRecentSearches();
-}
-
-function addRecentArticle(item) {
-  if (!item?.url || !item?.title) return;
-  const next = { title: item.title, url: item.url, source: item.source || '', image: item.image || '' };
-  state.recentArticles = [next, ...state.recentArticles.filter(x => x.url !== next.url)].slice(0, 10);
-  saveRecent();
-  renderRecentArticles();
-}
-
-/* ═══ #9: Empty state with emoji ═══ */
-function renderEmptyState(container, emoji, message) {
-  container.innerHTML = '';
-  const div = document.createElement('div');
-  div.className = 'empty-state';
-  div.innerHTML = `<span class="empty-emoji">${emoji}</span><span>${message}</span>`;
-  container.appendChild(div);
-}
-
-function renderRecentSearches() {
-  els.recentSearches.innerHTML = '';
-  if (!state.recentSearches.length) {
-    renderEmptyState(els.recentSearches, '🔍', 'No searches yet');
-    return;
-  }
-  state.recentSearches.forEach(q => {
-    const b = document.createElement('button');
-    b.className = 'recent-item';
-    b.textContent = `🔎 ${q}`;
-    b.addEventListener('click', () => {
-      els.searchInput.value = q;
-      searchNews(q);
-    });
-    els.recentSearches.appendChild(b);
-  });
-}
-
-function renderRecentArticles() {
-  els.recentArticles.innerHTML = '';
-  if (!state.recentArticles.length) {
-    renderEmptyState(els.recentArticles, '📰', 'No articles opened yet');
-    return;
-  }
-  state.recentArticles.forEach(a => {
-    const b = document.createElement('button');
-    b.className = 'recent-item';
-    b.textContent = `📰 ${a.title}`;
-    b.title = a.url;
-    b.addEventListener('click', () => readArticle(a.url));
-    els.recentArticles.appendChild(b);
-  });
-}
-
-/* ═══ #2: Collapsible region grid ═══ */
+/* ═══ Collapsible region grid ═══ */
 function renderRegions() {
   els.regionList.innerHTML = '';
   REGIONS.forEach((r, i) => {
@@ -346,34 +294,99 @@ function updateRegionToggle() {
   els.regionToggle.textContent = state.regionsExpanded ? 'Less regions ▴' : 'More regions ▾';
 }
 
-/* ═══ Breaking news cards with images ═══ */
+/* ═══ Empty state ═══ */
+function renderEmptyState(container, emoji, message) {
+  container.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'empty-state';
+  div.innerHTML = `<span class="empty-emoji">${emoji}</span><span>${message}</span>`;
+  container.appendChild(div);
+}
+
+/* ═══ Breaking news as 3D wheel ═══ */
 function createBreakingCardElement(card, index) {
   const el = document.createElement('article');
-  el.className = 'breaking-card animate-in';
-  el.style.animationDelay = `${index * 50}ms`;
+  el.className = 'news-card';
+  el.dataset.index = String(index);
 
   if (card.image?.url) {
     const img = document.createElement('img');
-    img.className = 'breaking-card-img';
+    img.className = 'news-card-image';
     img.src = card.image.url;
     img.alt = card.title || '';
     img.loading = 'lazy';
     img.decoding = 'async';
     img.referrerPolicy = 'no-referrer';
-    img.onerror = () => { img.style.display = 'none'; };
+    img.onerror = () => {
+      img.remove();
+      const ph = document.createElement('div');
+      ph.className = 'news-card-image news-card-image--placeholder';
+      ph.textContent = 'Breaking';
+      el.prepend(ph);
+    };
     el.appendChild(img);
+  } else {
+    const ph = document.createElement('div');
+    ph.className = 'news-card-image news-card-image--placeholder';
+    ph.textContent = 'Breaking';
+    el.appendChild(ph);
   }
 
-  const title = document.createElement('span');
-  title.className = 'breaking-card-title';
+  const content = document.createElement('div');
+  content.className = 'news-card-content';
+  const title = document.createElement('h3');
   title.textContent = card.title || `Story ${index + 1}`;
-  el.appendChild(title);
+  content.appendChild(title);
+  el.appendChild(content);
 
-  el.addEventListener('click', () => { if (card.url) readArticle(card.url); });
+  el.addEventListener('click', () => {
+    if (card.url) readArticle(card.url, card.image?.url);
+  });
   return el;
 }
 
-/* ═══ Breaking news (inline on home) ═══ */
+function applyBreakingWheelTransforms() {
+  const cards = [...els.breakingDeck.querySelectorAll('.news-card')];
+  if (!cards.length) return;
+
+  const active = state.breakingIndex;
+  cards.forEach((card, i) => {
+    const offset = i - active;
+    const absOff = Math.abs(offset);
+
+    if (absOff > 2) {
+      card.style.cssText = 'display:none';
+      return;
+    }
+
+    const angle = offset * 55;
+    const radius = 100;
+    const y = Math.sin(angle * Math.PI / 180) * radius;
+    const z = (Math.cos(angle * Math.PI / 180) - 1) * radius;
+    const scale = Math.max(0.45, Math.cos(angle * Math.PI / 180));
+    const opacity = Math.max(0, Math.cos(angle * Math.PI / 180) * 1.1 - 0.1);
+
+    card.style.cssText = `
+      display: block;
+      transform: translateY(${y}px) translateZ(${z}px) rotateX(${-angle}deg) scale(${scale.toFixed(3)});
+      opacity: ${opacity.toFixed(3)};
+      z-index: ${10 - absOff};
+      pointer-events: ${absOff === 0 ? 'auto' : 'none'};
+    `;
+    card.classList.toggle('is-active', i === active);
+  });
+
+  // Update breaking counter
+  const bc = document.getElementById('breakCounter');
+  if (bc) bc.textContent = `${active + 1} / ${cards.length}`;
+}
+
+function scrollBreaking(direction) {
+  if (!state.breakingCards.length) return;
+  state.breakingIndex = Math.max(0, Math.min(state.breakingCards.length - 1, state.breakingIndex + direction));
+  applyBreakingWheelTransforms();
+}
+
 async function loadBreakingNewsInline() {
   try {
     els.breakingLoading.classList.remove('hidden');
@@ -381,16 +394,21 @@ async function loadBreakingNewsInline() {
     const data = await api('/api/news', { url: BREAKING_NEWS_URL });
     els.breakingLoading.classList.add('hidden');
 
-    const cards = data.cards || [];
-    if (!cards.length) {
+    // Filter out paywalled sources
+    const allCards = data.cards || [];
+    state.breakingCards = allCards.filter(c => !c.url || !isPaywalled(c.url));
+
+    if (!state.breakingCards.length) {
       renderEmptyState(els.breakingDeck, '📡', 'No breaking news right now');
       return;
     }
 
     els.breakingDeck.innerHTML = '';
-    cards.forEach((card, index) => {
+    state.breakingIndex = 0;
+    state.breakingCards.forEach((card, index) => {
       els.breakingDeck.appendChild(createBreakingCardElement(card, index));
     });
+    applyBreakingWheelTransforms();
   } catch (error) {
     els.breakingLoading.textContent = 'Could not load breaking news.';
   }
@@ -438,7 +456,7 @@ function createCardElement(card, index) {
   content.append(title, snippet);
   article.appendChild(content);
 
-  const openCard = () => { if (card.url) readArticle(card.url); };
+  const openCard = () => { if (card.url) readArticle(card.url, card.image?.url); };
   article.addEventListener('click', openCard);
   article.addEventListener('touchend', (ev) => { ev.preventDefault(); openCard(); }, { passive: false });
 
@@ -514,13 +532,14 @@ function renderCards(cards = [], sourceLabel = 'News') {
   setStatus(`${sourceLabel}: ${cards.length} cards`);
 }
 
-/* ═══ #1: Article with lead image ═══ */
-function renderArticle(data) {
+/* ═══ Article with lead image (always preserved) ═══ */
+function renderArticle(data, fallbackImageUrl) {
   els.articleTitle.textContent = data.title || 'Article';
 
-  // Show lead image if available
-  if (data.image?.url || data.leadImage) {
-    els.articleImage.src = data.image?.url || data.leadImage;
+  // Show lead image: API image > fallback from card > hidden
+  const imgUrl = data.image?.url || data.leadImage || fallbackImageUrl;
+  if (imgUrl) {
+    els.articleImage.src = imgUrl;
     els.articleImage.alt = data.title || 'Article image';
     els.articleImage.classList.remove('hidden');
     els.articleImage.onerror = () => els.articleImage.classList.add('hidden');
@@ -549,16 +568,17 @@ function renderArticle(data) {
   els.articleSections.appendChild(block);
 }
 
-/* ═══ API actions (using #12 retry) ═══ */
+/* ═══ API actions ═══ */
 async function fetchNewsFromUrl(url, label = 'Source News') {
   try {
     showLoading('Fetching news cards…');
     const data = await apiWithRetry('/api/news', { url });
     hideLoading();
-    renderCards(data.cards || [], label || data.domain || 'News');
+    // Filter out paywalled cards
+    const filteredCards = (data.cards || []).filter(c => !c.url || !isPaywalled(c.url));
+    renderCards(filteredCards, label || data.domain || 'News');
   } catch (error) {
     hideLoading();
-    // #14 Graceful degradation — show error card with retry
     renderErrorCard(error.message, () => fetchNewsFromUrl(url, label));
   }
 }
@@ -567,30 +587,40 @@ async function searchNews(query) {
   const q = String(query || '').trim();
   if (!q) return setStatus('Type a search term first.');
 
-  addRecentSearch(q);
-
   try {
     showLoading('Searching across sources…');
     const data = await apiWithRetry('/api/search', { query: q });
     hideLoading();
-    renderCards(data.cards || [], `Search: ${q}`);
+    // Filter out paywalled cards
+    const filteredCards = (data.cards || []).filter(c => !c.url || !isPaywalled(c.url));
+    renderCards(filteredCards, `Search: ${q}`);
   } catch (error) {
     hideLoading();
     renderErrorCard(error.message, () => searchNews(query));
   }
 }
 
-async function readArticle(url) {
+async function readArticle(url, cardImageUrl) {
+  // Warn user if paywalled
+  if (isPaywalled(url)) {
+    setStatus('⚠️ This source may require a subscription.', { persist: true });
+  }
   try {
     showLoading('Opening article…');
     const data = await apiWithRetry('/api/read', { url });
     hideLoading();
-    renderArticle(data);
-    addRecentArticle({ title: data.title, url: data.canonicalUrl || url, source: data.domain, image: data.image?.url || '' });
+
+    // Check if content is too short (likely paywall)
+    const sections = (data.sections || []).filter(Boolean);
+    if (sections.length <= 1 && sections.join('').length < 100) {
+      setStatus('⚠️ Article may be behind a paywall — limited content available.', { persist: true });
+    }
+
+    renderArticle(data, cardImageUrl);
     setView('article');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     applyArticleFontScale();
-    setStatus(`Opened article from ${data.domain}.`);
+    setStatus(`Opened article from ${data.domain || 'source'}.`);
   } catch (error) {
     hideLoading();
     setStatus(error.message, { persist: true });
@@ -627,18 +657,11 @@ async function healthCheck() {
 /* ═══ Persistence ═══ */
 async function loadRecent() {
   try {
-    state.recentSearches = (await storageLoad(RECENT_SEARCH_KEY)) || [];
-    state.recentArticles = (await storageLoad(RECENT_ARTICLE_KEY)) || [];
     const fontVal = await storageLoad(ARTICLE_FONT_KEY);
     state.articleFontScale = Number(fontVal) || 0.72;
   } catch {
-    state.recentSearches = [];
-    state.recentArticles = [];
     state.articleFontScale = 0.72;
   }
-
-  renderRecentSearches();
-  renderRecentArticles();
   applyArticleFontScale();
 }
 
@@ -667,18 +690,23 @@ function bindUi() {
   // Region toggle
   els.regionToggle.addEventListener('click', toggleRegions);
 
-  // Font controls — click only (no touchend double-fire)
+  // Breaking news nav arrows
+  const breakPrev = document.getElementById('breakPrev');
+  const breakNext = document.getElementById('breakNext');
+  if (breakPrev) breakPrev.addEventListener('click', () => scrollBreaking(-1));
+  if (breakNext) breakNext.addEventListener('click', () => scrollBreaking(1));
+
+  // Font controls
   els.fontDown.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); changeArticleFont(-0.08); });
   els.fontUp.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); changeArticleFont(0.08); });
 
-  window.addEventListener('scroll', refreshActiveCard, { passive: true });
   window.addEventListener('resize', refreshActiveCard, { passive: true });
 
   window.addEventListener('keydown', (event) => {
     if (state.view === 'cards') {
       if (['ArrowDown', 'PageDown', 'j', 'J'].includes(event.key)) { event.preventDefault(); scrollCards(1); return; }
       if (['ArrowUp', 'PageUp', 'k', 'K'].includes(event.key)) { event.preventDefault(); scrollCards(-1); return; }
-      if (event.key === 'Enter') { event.preventDefault(); const a = state.cards[state.activeCardIndex]; if (a?.url) readArticle(a.url); }
+      if (event.key === 'Enter') { event.preventDefault(); const a = state.cards[state.activeCardIndex]; if (a?.url) readArticle(a.url, a.image?.url); }
       return;
     }
     if (state.view === 'article') {
@@ -740,11 +768,11 @@ function initR1Hardware() {
     });
   });
 
-  // #5 PTT: open active card in cards view
+  // PTT: open active card in cards view
   window.addEventListener('sideClick', () => {
     if (state.view === 'cards') {
       const active = state.cards[state.activeCardIndex];
-      if (active?.url) readArticle(active.url);
+      if (active?.url) readArticle(active.url, active.image?.url);
     } else if (state.view === 'article') {
       goBackView();
     }

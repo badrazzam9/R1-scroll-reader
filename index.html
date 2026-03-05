@@ -38,20 +38,15 @@
         <button id="regionToggle" class="region-toggle">More regions ▾</button>
       </section>
 
-      <section class="card">
+      <section class="card breaking-section">
         <h3>⚡ Breaking News</h3>
-        <div id="breakingDeck" class="breaking-deck"></div>
+        <div class="breaking-nav">
+          <button id="breakPrev" class="nav-btn breaking-arrow" title="Previous">◀</button>
+          <span id="breakCounter" class="break-counter"></span>
+          <button id="breakNext" class="nav-btn breaking-arrow" title="Next">▶</button>
+        </div>
+        <div id="breakingDeck" class="deck breaking-wheel"></div>
         <div id="breakingLoading" class="microcopy" style="text-align:center;padding:.3rem 0">Loading…</div>
-      </section>
-
-      <section class="card">
-        <h3>🔎 Recent Searches</h3>
-        <div id="recentSearches" class="recent-list"></div>
-      </section>
-
-      <section class="card">
-        <h3>📰 Recently Opened</h3>
-        <div id="recentArticles" class="recent-list"></div>
       </section>
     </section>
 
@@ -73,7 +68,7 @@
 
   <section id="status" class="status" aria-live="polite"></section>
 
-  <script src="./main.js?v=25"></script>
+  <script src="./main.js?v=26"></script>
 </body>
 
 </html>
