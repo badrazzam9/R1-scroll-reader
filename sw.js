@@ -3,36 +3,36 @@
    Network-first for API, cache-first for shell
    ═══════════════════════════════════════════════ */
 
-const SHELL_CACHE = 'r1-news-shell-v26';
+const SHELL_CACHE = 'r1-news-shell-v27';
 const ARTICLE_CACHE = 'r1-news-articles-v1';
 const MAX_CACHED_ARTICLES = 10;
 
 const SHELL_FILES = [
     './',
     './index.html',
-    './main.js?v=26',
+    './main.js?v=27',
     './styles.css'
 ];
 
 /* ── Install: cache app shell ── */
 self.addEventListener('install', (event) => {
+    self.skipWaiting(); // Force activate new worker
     event.waitUntil(
         caches.open(SHELL_CACHE)
             .then(cache => cache.addAll(SHELL_FILES))
-            .then(() => self.skipWaiting())
     );
 });
 
 /* ── Activate: clean old caches ── */
 self.addEventListener('activate', (event) => {
     event.waitUntil(
-        caches.keys().then(keys =>
-            Promise.all(
-                keys
-                    .filter(k => k.startsWith('r1-news-shell-') && k !== SHELL_CACHE)
-                    .map(k => caches.delete(k))
-            )
-        ).then(() => self.clients.claim())
+        caches.keys().then(keys => Promise.all(
+            keys.map(key => {
+                if (key !== SHELL_CACHE && key !== ARTICLE_CACHE) {
+                    return caches.delete(key);
+                }
+            })
+        )).then(() => self.clients.claim()) // Claim clients immediately
     );
 });
 

@@ -779,10 +779,21 @@ function initR1Hardware() {
   });
 }
 
-/* ═══ Service Worker registration (#10) ═══ */
+/* ═══ Service Worker registration & cache busting ═══ */
 function registerSW() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => { /* silent */ });
+    navigator.serviceWorker.register('./sw.js?v=27').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // New SW found, force clear caches and hard reload
+            caches.keys().then(names => Promise.all(names.map(n => caches.delete(n))))
+              .then(() => window.location.reload(true));
+          }
+        });
+      });
+    }).catch(() => { /* silent */ });
   }
 }
 
