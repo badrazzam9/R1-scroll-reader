@@ -132,71 +132,84 @@ input {
   font-size: .75rem;
 }
 
-.btn {
-  border: 1px solid var(--border);
-  background: #212b39;
-  color: var(--text);
-  border-radius: 8px;
-  padding: .4rem .52rem;
-  font-weight: 640;
-  font-size: .72rem;
-  cursor: pointer;
+/* ── Compact Top Bar ── */
+.top-bar {
+  display: flex;
+  gap: .4rem;
+  margin-bottom: .6rem;
+  flex-shrink: 0;
 }
 
-.btn-primary {
-  border-color: transparent;
-  background: linear-gradient(180deg, var(--accent-soft), var(--accent));
-  color: #fff;
+.search-form {
+  flex: 1;
+  display: flex;
 }
 
-.btn-soft {
-  background: rgba(214, 59, 74, .18);
-  border-color: rgba(214, 59, 74, .4);
-  color: #ffd9dd;
-}
-
-/* ── Region grid + toggle ── */
-.region-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: .28rem;
-}
-
-.region-btn {
-  border: 1px solid var(--border);
-  background: #111826;
-  color: #dfe7f3;
-  border-radius: 8px;
-  padding: .34rem .3rem;
-  font-size: .62rem;
-  cursor: pointer;
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: background .12s ease;
-}
-
-.region-btn:active {
-  background: rgba(214, 59, 74, .22);
-}
-
-.region-toggle {
-  display: block;
+.search-input {
   width: 100%;
-  margin-top: .3rem;
-  padding: .28rem 0;
-  background: none;
-  border: none;
-  color: var(--accent-soft);
-  font-size: .64rem;
+  padding: .5rem .6rem;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: #11151e;
+  color: var(--text);
+  font-size: .8rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: #d63b4a;
+}
+
+.region-select {
+  flex: 1;
+  padding: .5rem .6rem;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: .8rem;
+  font-family: inherit;
+  outline: none;
   cursor: pointer;
-  text-align: center;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d7ddf0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right .5rem center;
+  background-size: 1rem;
+  padding-right: 2rem;
+}
+
+.region-select:focus {
+  border-color: #d63b4a;
 }
 
 /* ── Breaking wheel nav ── */
+.breaking-section {
+  flex: 1;
+  /* Expand to fill remaining height */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Contains the wheel */
+  margin-top: 0;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.breaking-section h3 {
+  flex-shrink: 0;
+  margin: 0 0 .3rem 0;
+  font-size: .85rem;
+  color: #ffced3;
+}
+
 .breaking-section .deck {
-  height: 180px;
+  flex: 1;
+  height: auto;
+  min-height: 0;
 }
 
 .breaking-nav {

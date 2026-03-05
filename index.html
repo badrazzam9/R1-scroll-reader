@@ -25,18 +25,17 @@
         <h1>R1 News</h1>
       </header>
 
-      <section class="card controls">
-        <div class="row">
-          <input id="searchInput" type="text" placeholder="Search news…" />
-          <button id="searchBtn" class="btn btn-primary">Go</button>
-        </div>
-      </section>
-
-      <section class="card">
-        <h3>🌍 By Region</h3>
-        <div id="regionList" class="region-grid"></div>
-        <button id="regionToggle" class="region-toggle">More regions ▾</button>
-      </section>
+      <!-- Compact Top Bar -->
+      <div class="top-bar">
+        <form id="searchForm" class="search-form">
+          <input type="search" id="searchInput" class="search-input" placeholder="Search news..." enterkeyhint="search"
+            required />
+        </form>
+        <select id="regionSelect" class="region-select" aria-label="Select news region">
+          <option value="" disabled selected>🌍 By Region</option>
+          <!-- Options injected by JS -->
+        </select>
+      </div>
 
       <section class="card breaking-section">
         <h3>⚡ Breaking News</h3>
@@ -68,7 +67,7 @@
 
   <section id="status" class="status" aria-live="polite"></section>
 
-  <script src="./main.js?v=27"></script>
+  <script src="./main.js?v=29"></script>
 </body>
 
 </html>

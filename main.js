@@ -61,10 +61,8 @@ const els = {
   viewArticle: document.getElementById('viewArticle'),
 
   searchInput: document.getElementById('searchInput'),
-  searchBtn: document.getElementById('searchBtn'),
-
-  regionList: document.getElementById('regionList'),
-  regionToggle: document.getElementById('regionToggle'),
+  searchForm: document.getElementById('searchForm'),
+  regionSelect: document.getElementById('regionSelect'),
   breakingDeck: document.getElementById('breakingDeck'),
   breakingLoading: document.getElementById('breakingLoading'),
 
@@ -271,27 +269,14 @@ function changeArticleFont(delta) {
 
 /* ═══ Collapsible region grid ═══ */
 function renderRegions() {
-  els.regionList.innerHTML = '';
-  REGIONS.forEach((r, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'region-btn';
-    if (i >= REGIONS_VISIBLE) btn.classList.add('region-extra');
-    btn.textContent = r.label;
-    btn.addEventListener('click', () => fetchNewsFromUrl(r.url, r.label));
-    els.regionList.appendChild(btn);
+  els.regionSelect.innerHTML = '<option value="" disabled selected>🌍 By Region</option>';
+  REGIONS.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.query;
+    if (r.code) opt.dataset.code = r.code;
+    opt.textContent = `${r.emoji || ''} ${r.name}`.trim();
+    els.regionSelect.appendChild(opt);
   });
-  updateRegionToggle();
-}
-
-function toggleRegions() {
-  state.regionsExpanded = !state.regionsExpanded;
-  updateRegionToggle();
-}
-
-function updateRegionToggle() {
-  const extras = els.regionList.querySelectorAll('.region-extra');
-  extras.forEach(el => el.classList.toggle('hidden', !state.regionsExpanded));
-  els.regionToggle.textContent = state.regionsExpanded ? 'Less regions ▴' : 'More regions ▾';
 }
 
 /* ═══ Empty state ═══ */
@@ -687,8 +672,15 @@ function bindUi() {
     }
   });
 
-  // Region toggle
-  els.regionToggle.addEventListener('click', toggleRegions);
+  els.regionSelect.addEventListener('change', () => {
+    const query = els.regionSelect.value;
+    const opt = els.regionSelect.options[els.regionSelect.selectedIndex];
+    if (query) {
+      els.searchInput.value = '';
+      fetchNewsFromUrl(query, opt.textContent);
+      els.regionSelect.selectedIndex = 0; // Reset after navigation
+    }
+  });
 
   // Breaking news nav arrows
   const breakPrev = document.getElementById('breakPrev');
@@ -747,8 +739,7 @@ function initR1Hardware() {
       } else if (state.view === 'home') {
         // #7 Pull-to-refresh: if at top, refresh breaking news
         if (window.scrollY <= 0) {
-          setStatus('Refreshing…');
-          loadBreakingNewsInline();
+          scrollBreaking(-1);
         } else {
           window.scrollBy({ top: -50, behavior: 'smooth' });
         }
@@ -763,7 +754,11 @@ function initR1Hardware() {
       } else if (state.view === 'article') {
         window.scrollBy({ top: 60, behavior: 'smooth' });
       } else if (state.view === 'home') {
-        window.scrollBy({ top: 50, behavior: 'smooth' });
+        if (window.scrollY <= 0) {
+          scrollBreaking(1);
+        } else {
+          window.scrollBy({ top: 50, behavior: 'smooth' });
+        }
       }
     });
   });
@@ -782,7 +777,7 @@ function initR1Hardware() {
 /* ═══ Service Worker registration & cache busting ═══ */
 function registerSW() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=27').then(reg => {
+    navigator.serviceWorker.register('./sw.js?v=29').then(reg => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
