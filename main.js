@@ -54,8 +54,23 @@ const state = {
   articleFontScale: 1
 };
 
-function setStatus(message) {
+let statusTimer;
+function setStatus(message, { persist = false } = {}) {
+  clearTimeout(statusTimer);
   els.status.textContent = message || '';
+  els.status.classList.remove('status--loading');
+  if (message && !persist) {
+    statusTimer = setTimeout(() => { els.status.textContent = ''; }, 3000);
+  }
+}
+
+function showLoading(message) {
+  els.status.textContent = message || 'Loading…';
+  els.status.classList.add('status--loading');
+}
+
+function hideLoading() {
+  els.status.classList.remove('status--loading');
 }
 
 function escapeHtml(s = '') {
@@ -117,6 +132,14 @@ function goBackView() {
   if (state.view === 'cards') return setView('home');
 }
 
+function scrollCards(direction) {
+  const cards = [...els.deck.querySelectorAll('.news-card')];
+  if (!cards.length) return;
+  state.activeCardIndex = Math.max(0, Math.min(cards.length - 1, state.activeCardIndex + direction));
+  cards[state.activeCardIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  refreshActiveCard();
+}
+
 function goHomeView() {
   setView('home');
 }
@@ -124,7 +147,7 @@ function goHomeView() {
 function applyArticleFontScale() {
   state.articleFontScale = Math.max(0.82, Math.min(1.45, Number(state.articleFontScale) || 1));
   els.articleSections.style.fontSize = `${state.articleFontScale}em`;
-  localStorage.setItem(ARTICLE_FONT_KEY, String(state.articleFontScale));
+  storageSave(ARTICLE_FONT_KEY, state.articleFontScale);
 }
 
 function changeArticleFont(delta) {
@@ -133,9 +156,30 @@ function changeArticleFont(delta) {
   setStatus(`Text size: ${Math.round(state.articleFontScale * 100)}%`);
 }
 
+async function storageSave(key, value) {
+  try {
+    if (window.creationStorage?.plain) {
+      await window.creationStorage.plain.setItem(key, btoa(JSON.stringify(value)));
+    } else {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  } catch { /* silent */ }
+}
+
+async function storageLoad(key) {
+  try {
+    if (window.creationStorage?.plain) {
+      const raw = await window.creationStorage.plain.getItem(key);
+      return raw ? JSON.parse(atob(raw)) : null;
+    }
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
 function saveRecent() {
-  localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(state.recentSearches.slice(0, 8)));
-  localStorage.setItem(RECENT_ARTICLE_KEY, JSON.stringify(state.recentArticles.slice(0, 10)));
+  storageSave(RECENT_SEARCH_KEY, state.recentSearches.slice(0, 8));
+  storageSave(RECENT_ARTICLE_KEY, state.recentArticles.slice(0, 10));
 }
 
 function addRecentSearch(text) {
@@ -345,11 +389,13 @@ function renderArticle(data) {
 
 async function fetchNewsFromUrl(url, label = 'Source News') {
   try {
-    setStatus('Fetching news cards…');
+    showLoading('Fetching news cards…');
     const data = await api('/api/news', { url });
+    hideLoading();
     renderCards(data.cards || [], label || data.domain || 'News');
   } catch (error) {
-    setStatus(error.message);
+    hideLoading();
+    setStatus(error.message, { persist: true });
   }
 }
 
@@ -364,18 +410,21 @@ async function searchNews(query) {
   addRecentSearch(q);
 
   try {
-    setStatus('Searching across sources…');
+    showLoading('Searching across sources…');
     const data = await api('/api/search', { query: q });
+    hideLoading();
     renderCards(data.cards || [], `Search: ${q}`);
   } catch (error) {
-    setStatus(error.message);
+    hideLoading();
+    setStatus(error.message, { persist: true });
   }
 }
 
 async function readArticle(url) {
   try {
-    setStatus('Opening article…');
+    showLoading('Opening article…');
     const data = await api('/api/read', { url });
+    hideLoading();
     renderArticle(data);
     addRecentArticle({ title: data.title, url: data.canonicalUrl || url, source: data.domain });
     setView('article');
@@ -383,7 +432,8 @@ async function readArticle(url) {
     applyArticleFontScale();
     setStatus(`Opened article from ${data.domain}.`);
   } catch (error) {
-    setStatus(error.message);
+    hideLoading();
+    setStatus(error.message, { persist: true });
   }
 }
 
@@ -392,15 +442,16 @@ async function healthCheck() {
     await api('/health', null, 'GET');
     setStatus('Ready. Enter source or search keyword.');
   } catch (error) {
-    setStatus(`API unavailable: ${error.message}`);
+    setStatus(`API unavailable: ${error.message}`, { persist: true });
   }
 }
 
-function loadRecent() {
+async function loadRecent() {
   try {
-    state.recentSearches = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]');
-    state.recentArticles = JSON.parse(localStorage.getItem(RECENT_ARTICLE_KEY) || '[]');
-    state.articleFontScale = Number(localStorage.getItem(ARTICLE_FONT_KEY) || '1') || 1;
+    state.recentSearches = (await storageLoad(RECENT_SEARCH_KEY)) || [];
+    state.recentArticles = (await storageLoad(RECENT_ARTICLE_KEY)) || [];
+    const fontVal = await storageLoad(ARTICLE_FONT_KEY);
+    state.articleFontScale = Number(fontVal) || 1;
   } catch {
     state.recentSearches = [];
     state.recentArticles = [];
@@ -494,8 +545,40 @@ function bindUi() {
   });
 }
 
+function initR1Hardware() {
+  window.addEventListener('scrollUp', () => {
+    if (state.view === 'cards') {
+      scrollCards(-1);
+    } else if (state.view === 'article') {
+      window.scrollBy({ top: -120, behavior: 'smooth' });
+    } else if (state.view === 'home') {
+      window.scrollBy({ top: -100, behavior: 'smooth' });
+    }
+  });
+
+  window.addEventListener('scrollDown', () => {
+    if (state.view === 'cards') {
+      scrollCards(1);
+    } else if (state.view === 'article') {
+      window.scrollBy({ top: 120, behavior: 'smooth' });
+    } else if (state.view === 'home') {
+      window.scrollBy({ top: 100, behavior: 'smooth' });
+    }
+  });
+
+  window.addEventListener('sideClick', () => {
+    if (state.view === 'cards') {
+      const active = state.cards[state.activeCardIndex];
+      if (active?.url) readArticle(active.url);
+    } else if (state.view === 'article') {
+      goBackView();
+    }
+  });
+}
+
 function boot() {
   bindUi();
+  initR1Hardware();
   loadRecent();
   setView('home', { push: false });
   history.replaceState({ view: 'home' }, '', '#home');
