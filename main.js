@@ -655,8 +655,10 @@ function bindUi() {
   els.navBack.addEventListener('click', goBackView);
   els.navHome.addEventListener('click', goHomeView);
 
-  els.searchBtn.addEventListener('click', () => searchNews(els.searchInput.value));
-
+  els.searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    searchNews(els.searchInput.value);
+  });
   // Enter key in search
   els.searchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); searchNews(els.searchInput.value); }
@@ -777,7 +779,7 @@ function initR1Hardware() {
 /* ═══ Service Worker registration & cache busting ═══ */
 function registerSW() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=30').then(reg => {
+    navigator.serviceWorker.register('./sw.js?v=31').then(reg => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
