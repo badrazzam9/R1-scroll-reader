@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   R1 News Fetcher v23 — main.js
+   R1 News Fetcher v24 — main.js
    ═══════════════════════════════════════════════ */
 
 const API_BASE = (localStorage.getItem('r1_api_base') || 'https://r1-scroll-reader-worker.swordandscroll.workers.dev').replace(/\/$/, '');
@@ -235,8 +235,7 @@ function scrollCards(direction) {
   const cards = [...els.deck.querySelectorAll('.news-card')];
   if (!cards.length) return;
   state.activeCardIndex = Math.max(0, Math.min(cards.length - 1, state.activeCardIndex + direction));
-  cards[state.activeCardIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
-  refreshActiveCard();
+  applyWheelTransforms();
 }
 
 function goHomeView() {
@@ -347,12 +346,29 @@ function updateRegionToggle() {
   els.regionToggle.textContent = state.regionsExpanded ? 'Less regions ▴' : 'More regions ▾';
 }
 
-/* ═══ #1: Mini cards for home breaking news (title only) ═══ */
-function createMiniCardElement(card, index) {
-  const el = document.createElement('button');
-  el.className = 'mini-card animate-in';
-  el.style.animationDelay = `${index * 40}ms`;
-  el.textContent = card.title || `Story ${index + 1}`;
+/* ═══ Breaking news cards with images ═══ */
+function createBreakingCardElement(card, index) {
+  const el = document.createElement('article');
+  el.className = 'breaking-card animate-in';
+  el.style.animationDelay = `${index * 50}ms`;
+
+  if (card.image?.url) {
+    const img = document.createElement('img');
+    img.className = 'breaking-card-img';
+    img.src = card.image.url;
+    img.alt = card.title || '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.referrerPolicy = 'no-referrer';
+    img.onerror = () => { img.style.display = 'none'; };
+    el.appendChild(img);
+  }
+
+  const title = document.createElement('span');
+  title.className = 'breaking-card-title';
+  title.textContent = card.title || `Story ${index + 1}`;
+  el.appendChild(title);
+
   el.addEventListener('click', () => { if (card.url) readArticle(card.url); });
   return el;
 }
@@ -373,7 +389,7 @@ async function loadBreakingNewsInline() {
 
     els.breakingDeck.innerHTML = '';
     cards.forEach((card, index) => {
-      els.breakingDeck.appendChild(createMiniCardElement(card, index));
+      els.breakingDeck.appendChild(createBreakingCardElement(card, index));
     });
   } catch (error) {
     els.breakingLoading.textContent = 'Could not load breaking news.';
@@ -429,32 +445,43 @@ function createCardElement(card, index) {
   return article;
 }
 
-/* ═══ #4: Active card highlight + counter ═══ */
-function refreshActiveCard() {
-  if (state.view !== 'cards') return;
-
+/* ═══ 3D Wheel Carousel ═══ */
+function applyWheelTransforms() {
   const cards = [...els.deck.querySelectorAll('.news-card')];
   if (!cards.length) return;
 
-  const center = window.innerHeight * 0.42;
-  let bestIndex = 0;
-  let bestDist = Number.POSITIVE_INFINITY;
-
+  const active = state.activeCardIndex;
   cards.forEach((card, i) => {
-    const rect = card.getBoundingClientRect();
-    const cardCenter = rect.top + rect.height / 2;
-    const dist = Math.abs(cardCenter - center);
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestIndex = i;
+    const offset = i - active; // -2, -1, 0, 1, 2...
+    const absOff = Math.abs(offset);
+
+    // Only render nearby cards for performance
+    if (absOff > 3) {
+      card.style.display = 'none';
+      return;
     }
+    card.style.display = '';
+
+    // Wheel geometry
+    const rotateX = offset * -25;          // degrees per slot
+    const translateZ = -absOff * 30;       // push back
+    const translateY = offset * 85;        // vertical spacing
+    const scale = Math.max(0.55, 1 - absOff * 0.15);
+    const opacity = Math.max(0.15, 1 - absOff * 0.35);
+
+    card.style.transform = `translateY(${translateY}px) perspective(600px) rotateX(${rotateX}deg) translateZ(${translateZ}px) scale(${scale})`;
+    card.style.opacity = opacity;
+    card.style.zIndex = 10 - absOff;
+    card.classList.toggle('is-active', i === active);
   });
 
-  state.activeCardIndex = bestIndex;
-  cards.forEach((card, i) => card.classList.toggle('is-active', i === bestIndex));
+  // Card counter
+  els.cardCounter.textContent = `${active + 1} / ${cards.length}`;
+}
 
-  // #4 Card counter
-  els.cardCounter.textContent = `${bestIndex + 1} / ${cards.length}`;
+function refreshActiveCard() {
+  if (state.view !== 'cards') return;
+  applyWheelTransforms();
 }
 
 function renderCards(cards = [], sourceLabel = 'News') {
@@ -470,8 +497,7 @@ function renderCards(cards = [], sourceLabel = 'News') {
   cards.forEach((card, index) => els.deck.appendChild(createCardElement(card, index)));
 
   setView('cards');
-  window.scrollTo({ top: 0, behavior: 'auto' });
-  refreshActiveCard();
+  applyWheelTransforms();
   setStatus(`${sourceLabel}: ${cards.length} cards`);
 }
 
