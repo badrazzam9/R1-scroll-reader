@@ -35,8 +35,6 @@ const els = {
   recentArticles: document.getElementById('recentArticles'),
 
   cardsTitle: document.getElementById('cardsTitle'),
-  prevCardBtn: document.getElementById('prevCardBtn'),
-  nextCardBtn: document.getElementById('nextCardBtn'),
   deck: document.getElementById('deck'),
 
   articleTitle: document.getElementById('articleTitle'),
@@ -53,8 +51,7 @@ const state = {
   previewCandidate: null,
   recentSearches: [],
   recentArticles: [],
-  articleFontScale: 1,
-  lastPageScrollY: 0
+  articleFontScale: 1
 };
 
 function setStatus(message) {
@@ -106,10 +103,11 @@ function setView(view, { push = true } = {}) {
   els.viewCards.classList.toggle('hidden', view !== 'cards');
   els.viewArticle.classList.toggle('hidden', view !== 'article');
 
+  els.fontTools.classList.toggle('hidden', view !== 'article');
+
   const labels = { home: 'Home', cards: 'News Cards', article: 'Article' };
   els.viewLabel.textContent = labels[view] || 'Home';
   els.navBack.disabled = view === 'home';
-  els.fontTools.classList.toggle('hidden', view !== 'article');
 
   if (push) history.pushState({ view }, '', `#${view}`);
 }
@@ -123,22 +121,21 @@ function goHomeView() {
   setView('home');
 }
 
-function saveRecent() {
-  localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(state.recentSearches.slice(0, 8)));
-  localStorage.setItem(RECENT_ARTICLE_KEY, JSON.stringify(state.recentArticles.slice(0, 10)));
-}
-
 function applyArticleFontScale() {
-  const scale = Math.max(0.82, Math.min(1.45, Number(state.articleFontScale) || 1));
-  state.articleFontScale = scale;
-  els.articleSections.style.fontSize = `${scale}em`;
-  localStorage.setItem(ARTICLE_FONT_KEY, String(scale));
+  state.articleFontScale = Math.max(0.82, Math.min(1.45, Number(state.articleFontScale) || 1));
+  els.articleSections.style.fontSize = `${state.articleFontScale}em`;
+  localStorage.setItem(ARTICLE_FONT_KEY, String(state.articleFontScale));
 }
 
 function changeArticleFont(delta) {
   state.articleFontScale = (Number(state.articleFontScale) || 1) + delta;
   applyArticleFontScale();
-  setStatus(`Article text size: ${Math.round(state.articleFontScale * 100)}%`);
+  setStatus(`Text size: ${Math.round(state.articleFontScale * 100)}%`);
+}
+
+function saveRecent() {
+  localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(state.recentSearches.slice(0, 8)));
+  localStorage.setItem(RECENT_ARTICLE_KEY, JSON.stringify(state.recentArticles.slice(0, 10)));
 }
 
 function addRecentSearch(text) {
@@ -153,12 +150,7 @@ function addRecentSearch(text) {
 function addRecentArticle(item) {
   if (!item?.url || !item?.title) return;
 
-  const next = {
-    title: item.title,
-    url: item.url,
-    source: item.source || ''
-  };
-
+  const next = { title: item.title, url: item.url, source: item.source || '' };
   state.recentArticles = [next, ...state.recentArticles.filter(x => x.url !== next.url)].slice(0, 10);
   saveRecent();
   renderRecentArticles();
@@ -166,7 +158,6 @@ function addRecentArticle(item) {
 
 function renderRecentSearches() {
   els.recentSearches.innerHTML = '';
-
   if (!state.recentSearches.length) {
     const empty = document.createElement('div');
     empty.className = 'recent-empty';
@@ -189,7 +180,6 @@ function renderRecentSearches() {
 
 function renderRecentArticles() {
   els.recentArticles.innerHTML = '';
-
   if (!state.recentArticles.length) {
     const empty = document.createElement('div');
     empty.className = 'recent-empty';
@@ -248,8 +238,11 @@ function createCardElement(card, index) {
     img.decoding = 'async';
     img.referrerPolicy = 'no-referrer';
     img.onerror = () => {
-      img.classList.add('news-card-image--placeholder');
-      img.alt = 'Top story';
+      img.remove();
+      const ph = document.createElement('div');
+      ph.className = 'news-card-image news-card-image--placeholder';
+      ph.textContent = 'Top Story';
+      article.prepend(ph);
     };
     article.appendChild(img);
   } else {
@@ -266,75 +259,43 @@ function createCardElement(card, index) {
   title.textContent = card.title || `Story ${index + 1}`;
 
   const snippet = document.createElement('p');
-  snippet.textContent = card.snippet || 'Open for full story.';
+  snippet.textContent = card.snippet || 'Tap to open full story.';
 
-  const readBtn = document.createElement('button');
-  readBtn.className = 'btn btn-primary read-btn';
-  readBtn.textContent = 'Dive In';
-  readBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    if (card.url) readArticle(card.url);
-  });
-
-  content.append(title, snippet, readBtn);
+  content.append(title, snippet);
   article.appendChild(content);
 
-  article.addEventListener('click', () => setActiveCard(index));
+  const openCard = () => {
+    if (card.url) readArticle(card.url);
+  };
+
+  article.addEventListener('click', openCard);
+  article.addEventListener('touchend', (ev) => { ev.preventDefault(); openCard(); }, { passive: false });
+
   return article;
 }
 
-function setActiveCard(index, { scroll = true } = {}) {
+function refreshActiveCard() {
+  if (state.view !== 'cards') return;
+
   const cards = [...els.deck.querySelectorAll('.news-card')];
   if (!cards.length) return;
 
-  state.activeCardIndex = Math.max(0, Math.min(index, cards.length - 1));
-
-  cards.forEach((cardEl, i) => {
-    cardEl.classList.toggle('is-active', i === state.activeCardIndex);
-  });
-
-  if (scroll) {
-    cards[state.activeCardIndex]?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
-  }
-
-  const active = state.cards[state.activeCardIndex];
-  if (active?.title) setStatus(`Card ${state.activeCardIndex + 1}/${state.cards.length}: ${active.title}`);
-}
-
-function moveCard(step) {
-  setActiveCard(state.activeCardIndex + step);
-}
-
-function handleCardStep(step) {
-  if (state.view !== 'cards' || !state.cards.length) return;
-  moveCard(step);
-}
-
-function activeIndexFromDeckScroll() {
-  const cards = [...els.deck.querySelectorAll('.news-card')];
-  if (!cards.length) return 0;
-
-  const deckTop = els.deck.getBoundingClientRect().top;
+  const center = window.innerHeight * 0.42;
   let bestIndex = 0;
   let bestDist = Number.POSITIVE_INFINITY;
 
   cards.forEach((card, i) => {
-    const dist = Math.abs(card.getBoundingClientRect().top - deckTop);
+    const rect = card.getBoundingClientRect();
+    const cardCenter = rect.top + rect.height / 2;
+    const dist = Math.abs(cardCenter - center);
     if (dist < bestDist) {
       bestDist = dist;
       bestIndex = i;
     }
   });
 
-  return bestIndex;
-}
-
-function attachDeckControls() {
-  els.deck.addEventListener('scroll', () => {
-    if (state.view !== 'cards') return;
-    const idx = activeIndexFromDeckScroll();
-    if (idx !== state.activeCardIndex) setActiveCard(idx, { scroll: false });
-  }, { passive: true });
+  state.activeCardIndex = bestIndex;
+  cards.forEach((card, i) => card.classList.toggle('is-active', i === bestIndex));
 }
 
 function renderCards(cards = [], sourceLabel = 'News') {
@@ -347,16 +308,12 @@ function renderCards(cards = [], sourceLabel = 'News') {
     return;
   }
 
-  cards.forEach((card, index) => {
-    els.deck.appendChild(createCardElement(card, index));
-  });
+  cards.forEach((card, index) => els.deck.appendChild(createCardElement(card, index)));
 
-  els.cardsTitle.textContent = sourceLabel;
   setView('cards');
-  els.deck.scrollTop = 0;
-  els.deck.setAttribute('tabindex', '0');
-  els.deck.focus();
-  setActiveCard(0, { scroll: false });
+  window.scrollTo({ top: 0, behavior: 'auto' });
+  refreshActiveCard();
+  setStatus(`${sourceLabel}: ${cards.length} cards`);
 }
 
 function renderArticle(data) {
@@ -391,7 +348,6 @@ async function fetchNewsFromUrl(url, label = 'Source News') {
     setStatus('Fetching news cards…');
     const data = await api('/api/news', { url });
     renderCards(data.cards || [], label || data.domain || 'News');
-    setStatus(`Fetched ${data.cards?.length || 0} cards from ${data.domain}.`);
   } catch (error) {
     setStatus(error.message);
   }
@@ -411,7 +367,6 @@ async function searchNews(query) {
     setStatus('Searching across sources…');
     const data = await api('/api/search', { query: q });
     renderCards(data.cards || [], `Search: ${q}`);
-    setStatus(`Found ${data.cards?.length || 0} cards.`);
   } catch (error) {
     setStatus(error.message);
   }
@@ -425,6 +380,7 @@ async function readArticle(url) {
     addRecentArticle({ title: data.title, url: data.canonicalUrl || url, source: data.domain });
     setView('article');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    applyArticleFontScale();
     setStatus(`Opened article from ${data.domain}.`);
   } catch (error) {
     setStatus(error.message);
@@ -444,12 +400,16 @@ function loadRecent() {
   try {
     state.recentSearches = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]');
     state.recentArticles = JSON.parse(localStorage.getItem(RECENT_ARTICLE_KEY) || '[]');
+    state.articleFontScale = Number(localStorage.getItem(ARTICLE_FONT_KEY) || '1') || 1;
   } catch {
     state.recentSearches = [];
     state.recentArticles = [];
+    state.articleFontScale = 1;
   }
+
   renderRecentSearches();
   renderRecentArticles();
+  applyArticleFontScale();
 }
 
 function bindUi() {
@@ -484,52 +444,28 @@ function bindUi() {
     setStatus('Preview cancelled.');
   });
 
-  els.prevCardBtn.addEventListener('click', () => handleCardStep(-1));
-  els.nextCardBtn.addEventListener('click', () => handleCardStep(1));
-  els.fontDown.addEventListener('click', () => changeArticleFont(-0.08));
-  els.fontUp.addEventListener('click', () => changeArticleFont(0.08));
+  const onDown = (e) => { e.preventDefault(); changeArticleFont(-0.08); };
+  const onUp = (e) => { e.preventDefault(); changeArticleFont(0.08); };
 
-  let touchStartY = 0;
-  els.deck.addEventListener('touchstart', (event) => {
-    touchStartY = event.changedTouches?.[0]?.clientY || 0;
-  }, { passive: true });
+  ['click', 'touchend'].forEach(evt => {
+    els.fontDown.addEventListener(evt, onDown, { passive: false });
+    els.fontUp.addEventListener(evt, onUp, { passive: false });
+  });
 
-  els.deck.addEventListener('touchend', (event) => {
-    if (state.view !== 'cards') return;
-    const endY = event.changedTouches?.[0]?.clientY || 0;
-    const delta = touchStartY - endY;
-    if (Math.abs(delta) < 18) return;
-    handleCardStep(delta > 0 ? 1 : -1);
-  }, { passive: true });
-
-  window.addEventListener('wheel', (event) => {
-    if (state.view !== 'cards') return;
-    event.preventDefault();
-    handleCardStep(event.deltaY > 0 ? 1 : -1);
-  }, { passive: false, capture: true });
-
-  window.addEventListener('scroll', () => {
-    if (state.view !== 'cards') return;
-    const y = window.scrollY || document.documentElement.scrollTop || 0;
-    const delta = y - state.lastPageScrollY;
-    if (Math.abs(delta) >= 8) {
-      handleCardStep(delta > 0 ? 1 : -1);
-      window.scrollTo({ top: 0, behavior: 'auto' });
-    }
-    state.lastPageScrollY = 0;
-  }, { passive: true });
+  window.addEventListener('scroll', refreshActiveCard, { passive: true });
+  window.addEventListener('resize', refreshActiveCard, { passive: true });
 
   window.addEventListener('keydown', (event) => {
     if (state.view === 'cards') {
       if (['ArrowDown', 'PageDown', 'j', 'J'].includes(event.key)) {
         event.preventDefault();
-        handleCardStep(1);
+        window.scrollBy({ top: 180, behavior: 'smooth' });
         return;
       }
 
       if (['ArrowUp', 'PageUp', 'k', 'K'].includes(event.key)) {
         event.preventDefault();
-        handleCardStep(-1);
+        window.scrollBy({ top: -180, behavior: 'smooth' });
         return;
       }
 
@@ -538,7 +474,6 @@ function bindUi() {
         const active = state.cards[state.activeCardIndex];
         if (active?.url) readArticle(active.url);
       }
-
       return;
     }
 
@@ -561,10 +496,7 @@ function bindUi() {
 
 function boot() {
   bindUi();
-  attachDeckControls();
   loadRecent();
-  state.articleFontScale = Number(localStorage.getItem(ARTICLE_FONT_KEY) || '1') || 1;
-  applyArticleFontScale();
   setView('home', { push: false });
   history.replaceState({ view: 'home' }, '', '#home');
   healthCheck();
