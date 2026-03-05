@@ -451,27 +451,40 @@ function applyWheelTransforms() {
   if (!cards.length) return;
 
   const active = state.activeCardIndex;
+  const deckH = els.deck.offsetHeight || 200;
+
   cards.forEach((card, i) => {
     const offset = i - active; // -2, -1, 0, 1, 2...
     const absOff = Math.abs(offset);
 
-    // Only render nearby cards for performance
-    if (absOff > 3) {
-      card.style.display = 'none';
+    // Only show nearby cards (±2)
+    if (absOff > 2) {
+      card.style.cssText = 'display:none';
       return;
     }
-    card.style.display = '';
 
-    // Wheel geometry
-    const rotateX = offset * -25;          // degrees per slot
-    const translateZ = -absOff * 30;       // push back
-    const translateY = offset * 85;        // vertical spacing
-    const scale = Math.max(0.55, 1 - absOff * 0.15);
-    const opacity = Math.max(0.15, 1 - absOff * 0.35);
+    // ── Cylinder geometry ──
+    // Each slot is 55° around the drum
+    const angle = offset * 55;
+    // Radius of the cylinder — determines how far back cards go
+    const radius = 120;
+    // Y position on the cylinder surface
+    const y = Math.sin(angle * Math.PI / 180) * radius;
+    // Z depth into the screen
+    const z = (Math.cos(angle * Math.PI / 180) - 1) * radius;
+    // Scale shrinks as cards rotate away
+    const scale = Math.max(0.45, Math.cos(angle * Math.PI / 180));
+    // Opacity fades dramatically
+    const opacity = Math.max(0, Math.cos(angle * Math.PI / 180) * 1.1 - 0.1);
 
-    card.style.transform = `translateY(${translateY}px) perspective(600px) rotateX(${rotateX}deg) translateZ(${translateZ}px) scale(${scale})`;
-    card.style.opacity = opacity;
-    card.style.zIndex = 10 - absOff;
+    card.style.cssText = `
+      display: block;
+      transform: translateY(${y}px) translateZ(${z}px) rotateX(${-angle}deg) scale(${scale.toFixed(3)});
+      opacity: ${opacity.toFixed(3)};
+      z-index: ${10 - absOff};
+      pointer-events: ${absOff === 0 ? 'auto' : 'none'};
+    `;
+
     card.classList.toggle('is-active', i === active);
   });
 
