@@ -46,6 +46,18 @@ body {
 .nav-btn:disabled { opacity: .42; cursor: default; }
 .view-label { margin-left: .3rem; color: var(--muted); font-size: .78rem; }
 
+.font-tools {
+  margin-left: auto;
+  display: inline-flex;
+  gap: .24rem;
+}
+
+.nav-btn-font {
+  width: 34px;
+  font-size: .72rem;
+  letter-spacing: .2px;
+}
+
 .app-shell {
   max-width: 250px;
   margin: 0 auto;
@@ -198,8 +210,9 @@ input {
 
 .source-link { color: #ffb6bf; text-decoration: none; font-size: .72rem; }
 .source-link:hover { text-decoration: underline; }
+.source-link-bottom { display: inline-block; margin-top: .62rem; }
 
-.article-sections { margin-top: .62rem; display: grid; gap: .5rem; }
+.article-sections { margin-top: .35rem; display: grid; gap: .5rem; }
 .article-chunk { border: 1px solid var(--border); border-radius: 9px; padding: .55rem; background: #111722; }
 .article-chunk p { margin: 0; color: #d6deeb; line-height: 1.42; font-size: .72rem; }
 .article-chunk--plain p + p { margin-top: .62rem; }

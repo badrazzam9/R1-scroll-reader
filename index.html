@@ -11,6 +11,10 @@
     <button id="navBack" class="nav-btn" title="Back" aria-label="Back">←</button>
     <button id="navHome" class="nav-btn" title="Home" aria-label="Home">⌂</button>
     <span id="viewLabel" class="view-label">Home</span>
+    <div id="fontTools" class="font-tools hidden" aria-label="Font size controls">
+      <button id="fontDown" class="nav-btn nav-btn-font" title="Smaller text" aria-label="Smaller text">A−</button>
+      <button id="fontUp" class="nav-btn nav-btn-font" title="Larger text" aria-label="Larger text">A+</button>
+    </div>
   </nav>
 
   <main class="app-shell">
@@ -78,15 +82,14 @@
     <section id="viewArticle" class="view hidden">
       <article class="article-shell card">
         <h2 id="articleTitle">Article</h2>
-        <p id="articleSummary" class="article-summary"></p>
-        <a id="articleSource" class="source-link" href="#" target="_blank" rel="noopener noreferrer">Open original source ↗</a>
         <div id="articleSections" class="article-sections"></div>
+        <a id="articleSource" class="source-link source-link-bottom" href="#" target="_blank" rel="noopener noreferrer">Open original source ↗</a>
       </article>
     </section>
   </main>
 
   <section id="status" class="status" aria-live="polite"></section>
 
-  <script src="./main.js?v=17"></script>
+  <script src="./main.js?v=18"></script>
 </body>
 </html>

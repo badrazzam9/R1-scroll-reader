@@ -3,11 +3,15 @@ const BREAKING_NEWS_URL = 'https://feeds.bbci.co.uk/news/world/rss.xml';
 
 const RECENT_SEARCH_KEY = 'r1_recent_searches_v1';
 const RECENT_ARTICLE_KEY = 'r1_recent_articles_v1';
+const ARTICLE_FONT_KEY = 'r1_article_font_scale_v1';
 
 const els = {
   navBack: document.getElementById('navBack'),
   navHome: document.getElementById('navHome'),
   viewLabel: document.getElementById('viewLabel'),
+  fontTools: document.getElementById('fontTools'),
+  fontDown: document.getElementById('fontDown'),
+  fontUp: document.getElementById('fontUp'),
 
   viewHome: document.getElementById('viewHome'),
   viewCards: document.getElementById('viewCards'),
@@ -36,7 +40,6 @@ const els = {
   deck: document.getElementById('deck'),
 
   articleTitle: document.getElementById('articleTitle'),
-  articleSummary: document.getElementById('articleSummary'),
   articleSource: document.getElementById('articleSource'),
   articleSections: document.getElementById('articleSections'),
 
@@ -49,7 +52,9 @@ const state = {
   activeCardIndex: 0,
   previewCandidate: null,
   recentSearches: [],
-  recentArticles: []
+  recentArticles: [],
+  articleFontScale: 1,
+  lastPageScrollY: 0
 };
 
 function setStatus(message) {
@@ -104,6 +109,7 @@ function setView(view, { push = true } = {}) {
   const labels = { home: 'Home', cards: 'News Cards', article: 'Article' };
   els.viewLabel.textContent = labels[view] || 'Home';
   els.navBack.disabled = view === 'home';
+  els.fontTools.classList.toggle('hidden', view !== 'article');
 
   if (push) history.pushState({ view }, '', `#${view}`);
 }
@@ -120,6 +126,19 @@ function goHomeView() {
 function saveRecent() {
   localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(state.recentSearches.slice(0, 8)));
   localStorage.setItem(RECENT_ARTICLE_KEY, JSON.stringify(state.recentArticles.slice(0, 10)));
+}
+
+function applyArticleFontScale() {
+  const scale = Math.max(0.82, Math.min(1.45, Number(state.articleFontScale) || 1));
+  state.articleFontScale = scale;
+  els.articleSections.style.fontSize = `${scale}em`;
+  localStorage.setItem(ARTICLE_FONT_KEY, String(scale));
+}
+
+function changeArticleFont(delta) {
+  state.articleFontScale = (Number(state.articleFontScale) || 1) + delta;
+  applyArticleFontScale();
+  setStatus(`Article text size: ${Math.round(state.articleFontScale * 100)}%`);
 }
 
 function addRecentSearch(text) {
@@ -342,7 +361,6 @@ function renderCards(cards = [], sourceLabel = 'News') {
 
 function renderArticle(data) {
   els.articleTitle.textContent = data.title || 'Article';
-  els.articleSummary.textContent = data.summary || '';
 
   if (data.canonicalUrl) {
     els.articleSource.href = data.canonicalUrl;
@@ -468,26 +486,70 @@ function bindUi() {
 
   els.prevCardBtn.addEventListener('click', () => handleCardStep(-1));
   els.nextCardBtn.addEventListener('click', () => handleCardStep(1));
+  els.fontDown.addEventListener('click', () => changeArticleFont(-0.08));
+  els.fontUp.addEventListener('click', () => changeArticleFont(0.08));
+
+  let touchStartY = 0;
+  els.deck.addEventListener('touchstart', (event) => {
+    touchStartY = event.changedTouches?.[0]?.clientY || 0;
+  }, { passive: true });
+
+  els.deck.addEventListener('touchend', (event) => {
+    if (state.view !== 'cards') return;
+    const endY = event.changedTouches?.[0]?.clientY || 0;
+    const delta = touchStartY - endY;
+    if (Math.abs(delta) < 18) return;
+    handleCardStep(delta > 0 ? 1 : -1);
+  }, { passive: true });
+
+  window.addEventListener('wheel', (event) => {
+    if (state.view !== 'cards') return;
+    event.preventDefault();
+    handleCardStep(event.deltaY > 0 ? 1 : -1);
+  }, { passive: false, capture: true });
+
+  window.addEventListener('scroll', () => {
+    if (state.view !== 'cards') return;
+    const y = window.scrollY || document.documentElement.scrollTop || 0;
+    const delta = y - state.lastPageScrollY;
+    if (Math.abs(delta) >= 8) {
+      handleCardStep(delta > 0 ? 1 : -1);
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+    state.lastPageScrollY = 0;
+  }, { passive: true });
 
   window.addEventListener('keydown', (event) => {
-    if (state.view !== 'cards') return;
+    if (state.view === 'cards') {
+      if (['ArrowDown', 'PageDown', 'j', 'J'].includes(event.key)) {
+        event.preventDefault();
+        handleCardStep(1);
+        return;
+      }
 
-    if (['ArrowDown', 'PageDown', 'j', 'J'].includes(event.key)) {
-      event.preventDefault();
-      handleCardStep(1);
+      if (['ArrowUp', 'PageUp', 'k', 'K'].includes(event.key)) {
+        event.preventDefault();
+        handleCardStep(-1);
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const active = state.cards[state.activeCardIndex];
+        if (active?.url) readArticle(active.url);
+      }
+
       return;
     }
 
-    if (['ArrowUp', 'PageUp', 'k', 'K'].includes(event.key)) {
-      event.preventDefault();
-      handleCardStep(-1);
-      return;
-    }
-
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      const active = state.cards[state.activeCardIndex];
-      if (active?.url) readArticle(active.url);
+    if (state.view === 'article') {
+      if (event.key === '+' || event.key === '=') {
+        event.preventDefault();
+        changeArticleFont(0.08);
+      } else if (event.key === '-') {
+        event.preventDefault();
+        changeArticleFont(-0.08);
+      }
     }
   });
 
@@ -501,6 +563,8 @@ function boot() {
   bindUi();
   attachDeckControls();
   loadRecent();
+  state.articleFontScale = Number(localStorage.getItem(ARTICLE_FONT_KEY) || '1') || 1;
+  applyArticleFontScale();
   setView('home', { push: false });
   history.replaceState({ view: 'home' }, '', '#home');
   healthCheck();
