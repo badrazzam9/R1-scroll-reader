@@ -5,6 +5,26 @@ const RECENT_SEARCH_KEY = 'r1_recent_searches_v1';
 const RECENT_ARTICLE_KEY = 'r1_recent_articles_v1';
 const ARTICLE_FONT_KEY = 'r1_article_font_scale_v1';
 
+/* ── Region / country RSS feeds ── */
+const REGIONS = [
+  { label: '🇺🇸 US', url: 'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml' },
+  { label: '🇬🇧 UK', url: 'https://feeds.bbci.co.uk/news/uk/rss.xml' },
+  { label: '🇪🇺 Europe', url: 'https://feeds.bbci.co.uk/news/world/europe/rss.xml' },
+  { label: '🌍 Africa', url: 'https://feeds.bbci.co.uk/news/world/africa/rss.xml' },
+  { label: '🌏 Asia', url: 'https://feeds.bbci.co.uk/news/world/asia/rss.xml' },
+  { label: '🇦🇺 Australia', url: 'https://feeds.bbci.co.uk/news/world/australia/rss.xml' },
+  { label: '🌎 L. America', url: 'https://feeds.bbci.co.uk/news/world/latin_america/rss.xml' },
+  { label: '🇮🇳 India', url: 'https://feeds.bbci.co.uk/news/world/asia/india/rss.xml' },
+  { label: '🇨🇳 China', url: 'https://feeds.bbci.co.uk/news/world/asia/china/rss.xml' },
+  { label: '🏛️ Middle East', url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml' },
+  { label: '💼 Business', url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
+  { label: '🔬 Sci/Tech', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml' },
+  { label: '⚽ Sport', url: 'https://feeds.bbci.co.uk/sport/rss.xml' },
+  { label: '🎬 Entertainment', url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml' },
+  { label: '🏥 Health', url: 'https://feeds.bbci.co.uk/news/health/rss.xml' },
+];
+
+/* ── DOM refs ── */
 const els = {
   navBack: document.getElementById('navBack'),
   navHome: document.getElementById('navHome'),
@@ -17,24 +37,16 @@ const els = {
   viewCards: document.getElementById('viewCards'),
   viewArticle: document.getElementById('viewArticle'),
 
-  urlInput: document.getElementById('urlInput'),
-  previewBtn: document.getElementById('previewBtn'),
-  fetchFromUrlBtn: document.getElementById('fetchFromUrlBtn'),
   searchInput: document.getElementById('searchInput'),
   searchBtn: document.getElementById('searchBtn'),
-  breakingBtn: document.getElementById('breakingBtn'),
 
-  previewPane: document.getElementById('previewPane'),
-  previewDomain: document.getElementById('previewDomain'),
-  previewUrl: document.getElementById('previewUrl'),
-  previewSafety: document.getElementById('previewSafety'),
-  openPreviewBtn: document.getElementById('openPreviewBtn'),
-  cancelPreviewBtn: document.getElementById('cancelPreviewBtn'),
+  regionList: document.getElementById('regionList'),
+  breakingDeck: document.getElementById('breakingDeck'),
+  breakingLoading: document.getElementById('breakingLoading'),
 
   recentSearches: document.getElementById('recentSearches'),
   recentArticles: document.getElementById('recentArticles'),
 
-  cardsTitle: document.getElementById('cardsTitle'),
   deck: document.getElementById('deck'),
 
   articleTitle: document.getElementById('articleTitle'),
@@ -44,16 +56,17 @@ const els = {
   status: document.getElementById('status')
 };
 
+/* ── State ── */
 const state = {
   view: 'home',
   cards: [],
   activeCardIndex: 0,
-  previewCandidate: null,
   recentSearches: [],
   recentArticles: [],
   articleFontScale: 1
 };
 
+/* ── Status / Loading ── */
 let statusTimer;
 function setStatus(message, { persist = false } = {}) {
   clearTimeout(statusTimer);
@@ -73,6 +86,7 @@ function hideLoading() {
   els.status.classList.remove('status--loading');
 }
 
+/* ── Helpers ── */
 function escapeHtml(s = '') {
   return s.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
@@ -111,6 +125,29 @@ async function api(path, payload, method = 'POST') {
   return data;
 }
 
+/* ── Storage (creationStorage with localStorage fallback) ── */
+async function storageSave(key, value) {
+  try {
+    if (window.creationStorage?.plain) {
+      await window.creationStorage.plain.setItem(key, btoa(JSON.stringify(value)));
+    } else {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  } catch { /* silent */ }
+}
+
+async function storageLoad(key) {
+  try {
+    if (window.creationStorage?.plain) {
+      const raw = await window.creationStorage.plain.getItem(key);
+      return raw ? JSON.parse(atob(raw)) : null;
+    }
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+/* ── Navigation ── */
 function setView(view, { push = true } = {}) {
   state.view = view;
 
@@ -144,6 +181,7 @@ function goHomeView() {
   setView('home');
 }
 
+/* ── Font controls ── */
 function applyArticleFontScale() {
   state.articleFontScale = Math.max(0.82, Math.min(1.45, Number(state.articleFontScale) || 1));
   els.articleSections.style.fontSize = `${state.articleFontScale}em`;
@@ -156,27 +194,7 @@ function changeArticleFont(delta) {
   setStatus(`Text size: ${Math.round(state.articleFontScale * 100)}%`);
 }
 
-async function storageSave(key, value) {
-  try {
-    if (window.creationStorage?.plain) {
-      await window.creationStorage.plain.setItem(key, btoa(JSON.stringify(value)));
-    } else {
-      localStorage.setItem(key, JSON.stringify(value));
-    }
-  } catch { /* silent */ }
-}
-
-async function storageLoad(key) {
-  try {
-    if (window.creationStorage?.plain) {
-      const raw = await window.creationStorage.plain.getItem(key);
-      return raw ? JSON.parse(atob(raw)) : null;
-    }
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
+/* ── Recents ── */
 function saveRecent() {
   storageSave(RECENT_SEARCH_KEY, state.recentSearches.slice(0, 8));
   storageSave(RECENT_ARTICLE_KEY, state.recentArticles.slice(0, 10));
@@ -242,32 +260,40 @@ function renderRecentArticles() {
   });
 }
 
-function renderPreview(data) {
-  els.previewPane.classList.remove('hidden');
-  els.previewDomain.textContent = data.domain || '-';
-  els.previewUrl.textContent = data.url || '-';
-  els.previewSafety.textContent = data.safe ? 'Safe' : 'Blocked';
-  els.previewSafety.className = `badge ${data.safe ? 'safe' : 'blocked'}`;
-  state.previewCandidate = data.url;
+/* ── Region buttons ── */
+function renderRegions() {
+  els.regionList.innerHTML = '';
+  REGIONS.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'region-btn';
+    btn.textContent = r.label;
+    btn.addEventListener('click', () => fetchNewsFromUrl(r.url, r.label));
+    els.regionList.appendChild(btn);
+  });
 }
 
-async function previewUrl(url) {
-  const safe = looksSafeUrl(url);
-  if (!safe.ok) {
-    renderPreview({ url, domain: '-', safe: false });
-    setStatus(safe.reason);
-    return;
-  }
-
+/* ── Breaking news (inline on home) ── */
+async function loadBreakingNewsInline() {
   try {
-    const data = await api('/api/preview', { url });
-    renderPreview(data);
-    setStatus('Preview ready.');
+    const data = await api('/api/news', { url: BREAKING_NEWS_URL });
+    const cards = data.cards || [];
+    els.breakingLoading.classList.add('hidden');
+
+    if (!cards.length) {
+      els.breakingDeck.innerHTML = '<div class="microcopy">No breaking news available.</div>';
+      return;
+    }
+
+    els.breakingDeck.innerHTML = '';
+    cards.forEach((card, index) => {
+      els.breakingDeck.appendChild(createCardElement(card, index));
+    });
   } catch (error) {
-    setStatus(error.message);
+    els.breakingLoading.textContent = 'Could not load breaking news.';
   }
 }
 
+/* ── Card creation ── */
 function createCardElement(card, index) {
   const article = document.createElement('article');
   article.className = 'news-card';
@@ -318,6 +344,7 @@ function createCardElement(card, index) {
   return article;
 }
 
+/* ── Active card highlight ── */
 function refreshActiveCard() {
   if (state.view !== 'cards') return;
 
@@ -387,6 +414,7 @@ function renderArticle(data) {
   els.articleSections.appendChild(block);
 }
 
+/* ── API actions ── */
 async function fetchNewsFromUrl(url, label = 'Source News') {
   try {
     showLoading('Fetching news cards…');
@@ -397,10 +425,6 @@ async function fetchNewsFromUrl(url, label = 'Source News') {
     hideLoading();
     setStatus(error.message, { persist: true });
   }
-}
-
-async function fetchBreakingNews() {
-  await fetchNewsFromUrl(BREAKING_NEWS_URL, 'Breaking News Worldwide');
 }
 
 async function searchNews(query) {
@@ -440,12 +464,12 @@ async function readArticle(url) {
 async function healthCheck() {
   try {
     await api('/health', null, 'GET');
-    setStatus('Ready. Enter source or search keyword.');
   } catch (error) {
     setStatus(`API unavailable: ${error.message}`, { persist: true });
   }
 }
 
+/* ── Persistence ── */
 async function loadRecent() {
   try {
     state.recentSearches = (await storageLoad(RECENT_SEARCH_KEY)) || [];
@@ -463,44 +487,31 @@ async function loadRecent() {
   applyArticleFontScale();
 }
 
+/* ── UI bindings ── */
 function bindUi() {
   els.navBack.addEventListener('click', goBackView);
   els.navHome.addEventListener('click', goHomeView);
 
-  els.previewBtn.addEventListener('click', () => {
-    const url = normaliseToUrl(els.urlInput.value.trim());
-    if (!url) return setStatus('Enter valid URL (bbc.com or full https://).');
-    els.urlInput.value = url;
-    previewUrl(url);
-  });
-
-  els.fetchFromUrlBtn.addEventListener('click', () => {
-    const url = normaliseToUrl(els.urlInput.value.trim());
-    if (!url) return setStatus('Enter valid source URL first.');
-    els.urlInput.value = url;
-    fetchNewsFromUrl(url, 'Source News');
-  });
-
   els.searchBtn.addEventListener('click', () => searchNews(els.searchInput.value));
-  els.breakingBtn.addEventListener('click', fetchBreakingNews);
 
-  els.openPreviewBtn.addEventListener('click', () => {
-    if (!state.previewCandidate) return;
-    fetchNewsFromUrl(state.previewCandidate, 'Source News');
+  // Enter key in search input
+  els.searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      searchNews(els.searchInput.value);
+    }
   });
 
-  els.cancelPreviewBtn.addEventListener('click', () => {
-    els.previewPane.classList.add('hidden');
-    state.previewCandidate = null;
-    setStatus('Preview cancelled.');
+  // Font controls — use ONLY click (not touchend) to prevent double-fire on R1
+  els.fontDown.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    changeArticleFont(-0.08);
   });
-
-  const onDown = (e) => { e.preventDefault(); changeArticleFont(-0.08); };
-  const onUp = (e) => { e.preventDefault(); changeArticleFont(0.08); };
-
-  ['click', 'touchend'].forEach(evt => {
-    els.fontDown.addEventListener(evt, onDown, { passive: false });
-    els.fontUp.addEventListener(evt, onUp, { passive: false });
+  els.fontUp.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    changeArticleFont(0.08);
   });
 
   window.addEventListener('scroll', refreshActiveCard, { passive: true });
@@ -510,13 +521,13 @@ function bindUi() {
     if (state.view === 'cards') {
       if (['ArrowDown', 'PageDown', 'j', 'J'].includes(event.key)) {
         event.preventDefault();
-        window.scrollBy({ top: 180, behavior: 'smooth' });
+        scrollCards(1);
         return;
       }
 
       if (['ArrowUp', 'PageUp', 'k', 'K'].includes(event.key)) {
         event.preventDefault();
-        window.scrollBy({ top: -180, behavior: 'smooth' });
+        scrollCards(-1);
         return;
       }
 
@@ -545,25 +556,40 @@ function bindUi() {
   });
 }
 
+/* ── R1 hardware (scroll wheel + side button) with throttle ── */
 function initR1Hardware() {
+  let scrollLock = false;
+  const SCROLL_COOLDOWN = 180; // ms between scroll ticks
+
+  function throttledScroll(handler) {
+    if (scrollLock) return;
+    scrollLock = true;
+    handler();
+    setTimeout(() => { scrollLock = false; }, SCROLL_COOLDOWN);
+  }
+
   window.addEventListener('scrollUp', () => {
-    if (state.view === 'cards') {
-      scrollCards(-1);
-    } else if (state.view === 'article') {
-      window.scrollBy({ top: -120, behavior: 'smooth' });
-    } else if (state.view === 'home') {
-      window.scrollBy({ top: -100, behavior: 'smooth' });
-    }
+    throttledScroll(() => {
+      if (state.view === 'cards') {
+        scrollCards(-1);
+      } else if (state.view === 'article') {
+        window.scrollBy({ top: -60, behavior: 'smooth' });
+      } else if (state.view === 'home') {
+        window.scrollBy({ top: -50, behavior: 'smooth' });
+      }
+    });
   });
 
   window.addEventListener('scrollDown', () => {
-    if (state.view === 'cards') {
-      scrollCards(1);
-    } else if (state.view === 'article') {
-      window.scrollBy({ top: 120, behavior: 'smooth' });
-    } else if (state.view === 'home') {
-      window.scrollBy({ top: 100, behavior: 'smooth' });
-    }
+    throttledScroll(() => {
+      if (state.view === 'cards') {
+        scrollCards(1);
+      } else if (state.view === 'article') {
+        window.scrollBy({ top: 60, behavior: 'smooth' });
+      } else if (state.view === 'home') {
+        window.scrollBy({ top: 50, behavior: 'smooth' });
+      }
+    });
   });
 
   window.addEventListener('sideClick', () => {
@@ -576,13 +602,16 @@ function initR1Hardware() {
   });
 }
 
+/* ── Boot ── */
 function boot() {
   bindUi();
   initR1Hardware();
+  renderRegions();
   loadRecent();
   setView('home', { push: false });
   history.replaceState({ view: 'home' }, '', '#home');
   healthCheck();
+  loadBreakingNewsInline();
 }
 
 boot();

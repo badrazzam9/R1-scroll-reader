@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=240, initial-scale=1.0, user-scalable=no" />
   <title>R1 News Fetcher</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
+
 <body>
   <nav class="chrome-nav">
     <button id="navBack" class="nav-btn" title="Back" aria-label="Back">←</button>
@@ -20,47 +22,34 @@
   <main class="app-shell">
     <section id="viewHome" class="view">
       <header class="hero">
-        <h1>R1 News Fetcher</h1>
-        <p>Fast cards. Clean reading. Built for Rabbit r1.</p>
+        <h1>R1 News</h1>
       </header>
 
       <section class="card controls">
-        <label for="urlInput">News source URL</label>
         <div class="row">
-          <input id="urlInput" type="url" placeholder="bbc.com or reuters.com" />
-          <button id="previewBtn" class="btn">Preview</button>
-          <button id="fetchFromUrlBtn" class="btn btn-primary">Fetch</button>
-        </div>
-
-        <label for="searchInput">Search news</label>
-        <div class="row">
-          <input id="searchInput" type="text" placeholder="honda, iraq, AI..." />
-          <button id="searchBtn" class="btn btn-primary">Search</button>
-        </div>
-
-        <div class="row top-gap">
-          <button id="breakingBtn" class="btn btn-soft">🌍 Breaking News</button>
-        </div>
-      </section>
-
-      <section id="previewPane" class="card hidden" aria-live="polite">
-        <h3>URL Preview</h3>
-        <div><strong>Domain:</strong> <span id="previewDomain">-</span></div>
-        <div class="full-url"><strong>URL:</strong> <span id="previewUrl">-</span></div>
-        <div><strong>Safety:</strong> <span id="previewSafety" class="badge">Unknown</span></div>
-        <div class="row top-gap">
-          <button id="openPreviewBtn" class="btn btn-primary">Fetch from this source</button>
-          <button id="cancelPreviewBtn" class="btn">Cancel</button>
+          <input id="searchInput" type="text" placeholder="Search news…" />
+          <button id="searchBtn" class="btn btn-primary">Go</button>
         </div>
       </section>
 
       <section class="card">
-        <h3>Recent Searches</h3>
+        <h3>🌍 By Region</h3>
+        <div id="regionList" class="region-grid"></div>
+      </section>
+
+      <section class="card">
+        <h3>⚡ Breaking News</h3>
+        <div id="breakingDeck" class="deck" aria-label="Breaking news cards"></div>
+        <div id="breakingLoading" class="microcopy" style="text-align:center;padding:.3rem 0">Loading…</div>
+      </section>
+
+      <section class="card">
+        <h3>🔎 Recent Searches</h3>
         <div id="recentSearches" class="recent-list"></div>
       </section>
 
       <section class="card">
-        <h3>Recently Opened</h3>
+        <h3>📰 Recently Opened</h3>
         <div id="recentArticles" class="recent-list"></div>
       </section>
     </section>
@@ -73,13 +62,15 @@
       <article class="article-shell card">
         <h2 id="articleTitle">Article</h2>
         <div id="articleSections" class="article-sections"></div>
-        <a id="articleSource" class="source-link source-link-bottom" href="#" target="_blank" rel="noopener noreferrer">Open original source ↗</a>
+        <a id="articleSource" class="source-link source-link-bottom" href="#" target="_blank"
+          rel="noopener noreferrer">Open original source ↗</a>
       </article>
     </section>
   </main>
 
   <section id="status" class="status" aria-live="polite"></section>
 
-  <script src="./main.js?v=20"></script>
+  <script src="./main.js?v=21"></script>
 </body>
+
 </html>
