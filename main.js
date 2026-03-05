@@ -272,9 +272,8 @@ function renderRegions() {
   els.regionSelect.innerHTML = '<option value="" disabled selected>🌍 By Region</option>';
   REGIONS.forEach(r => {
     const opt = document.createElement('option');
-    opt.value = r.query;
-    if (r.code) opt.dataset.code = r.code;
-    opt.textContent = `${r.emoji || ''} ${r.name}`.trim();
+    opt.value = r.url;
+    opt.textContent = r.label;
     els.regionSelect.appendChild(opt);
   });
 }
@@ -779,7 +778,7 @@ function initR1Hardware() {
 /* ═══ Service Worker registration & cache busting ═══ */
 function registerSW() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=31').then(reg => {
+    navigator.serviceWorker.register('./sw.js?v=32').then(reg => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
