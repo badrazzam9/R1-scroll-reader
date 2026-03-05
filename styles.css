@@ -308,7 +308,7 @@ input {
 .article-shell h2 {
   margin: 0;
   line-height: 1.25;
-  font-size: .9rem;
+  font-size: 1.15em;
 }
 
 .source-link {
@@ -343,7 +343,7 @@ input {
   margin: 0;
   color: #d6deeb;
   line-height: 1.42;
-  font-size: .72rem;
+  font-size: 1em;
 }
 
 .article-chunk--plain p+p {

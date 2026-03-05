@@ -63,7 +63,7 @@ const state = {
   activeCardIndex: 0,
   recentSearches: [],
   recentArticles: [],
-  articleFontScale: 1
+  articleFontScale: 0.72
 };
 
 /* ── Status / Loading ── */
@@ -183,13 +183,15 @@ function goHomeView() {
 
 /* ── Font controls ── */
 function applyArticleFontScale() {
-  state.articleFontScale = Math.max(0.82, Math.min(1.45, Number(state.articleFontScale) || 1));
-  els.articleSections.style.fontSize = `${state.articleFontScale}em`;
+  state.articleFontScale = Math.max(0.62, Math.min(1.0, Number(state.articleFontScale) || 0.72));
+  // Always query live DOM to avoid stale references
+  const sections = document.getElementById('articleSections');
+  if (sections) sections.style.fontSize = `${state.articleFontScale}em`;
   storageSave(ARTICLE_FONT_KEY, state.articleFontScale);
 }
 
 function changeArticleFont(delta) {
-  state.articleFontScale = (Number(state.articleFontScale) || 1) + delta;
+  state.articleFontScale = (Number(state.articleFontScale) || 0.72) + delta;
   applyArticleFontScale();
   setStatus(`Text size: ${Math.round(state.articleFontScale * 100)}%`);
 }
@@ -475,11 +477,11 @@ async function loadRecent() {
     state.recentSearches = (await storageLoad(RECENT_SEARCH_KEY)) || [];
     state.recentArticles = (await storageLoad(RECENT_ARTICLE_KEY)) || [];
     const fontVal = await storageLoad(ARTICLE_FONT_KEY);
-    state.articleFontScale = Number(fontVal) || 1;
+    state.articleFontScale = Number(fontVal) || 0.72;
   } catch {
     state.recentSearches = [];
     state.recentArticles = [];
-    state.articleFontScale = 1;
+    state.articleFontScale = 0.72;
   }
 
   renderRecentSearches();
