@@ -11,6 +11,7 @@
 
 * {
   box-sizing: border-box;
+  max-width: 100vw;
 }
 
 body {
@@ -79,6 +80,9 @@ body {
 
 .view {
   margin-top: .2rem;
+  overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
 }
 
 .hidden {
@@ -97,11 +101,13 @@ body {
 
 /* ── Card panel ── */
 .card {
-  margin: .42rem .35rem;
-  padding: .55rem;
+  margin: .42rem .2rem;
+  padding: .4rem;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  overflow-x: hidden;
+  max-width: calc(100vw - .4rem);
 }
 
 .card h3 {
@@ -386,19 +392,24 @@ input {
 }
 
 .article-sections {
-  margin-top: .35rem;
+  margin-top: .25rem;
   display: grid;
-  gap: .5rem;
+  gap: .35rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .article-chunk {
   border: 1px solid var(--border);
   border-radius: 9px;
-  padding: .4rem;
+  padding: .3rem;
   background: #111722;
   overflow: hidden;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .article-chunk p {
