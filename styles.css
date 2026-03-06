@@ -346,17 +346,17 @@ input {
 /* ── Article ── */
 .article-lead-image {
   width: 100%;
-  max-height: 120px;
+  max-height: 80px;
   object-fit: cover;
-  border-radius: 8px;
-  margin-bottom: .45rem;
+  border-radius: 6px;
+  margin-bottom: .3rem;
   display: block;
 }
 
 .article-shell h2 {
   margin: 0;
-  line-height: 1.25;
-  font-size: 1.15em;
+  line-height: 1.2;
+  font-size: .85em;
 }
 
 .source-link {
@@ -383,15 +383,41 @@ input {
 .article-chunk {
   border: 1px solid var(--border);
   border-radius: 9px;
-  padding: .55rem;
+  padding: .4rem;
   background: #111722;
+  overflow: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .article-chunk p {
   margin: 0;
   color: #d6deeb;
-  line-height: 1.42;
-  font-size: 1em;
+  line-height: 1.35;
+  font-size: .72em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Constrain all images inside article content for R1 screen */
+.article-chunk img {
+  max-width: 100%;
+  height: auto;
+  max-height: 100px;
+  object-fit: contain;
+  border-radius: 4px;
+  display: block;
+  margin: .3rem 0;
+}
+
+/* Constrain iframes, videos, tables inside articles */
+.article-chunk iframe,
+.article-chunk video,
+.article-chunk table,
+.article-chunk figure {
+  max-width: 100%;
+  height: auto;
+  overflow: hidden;
 }
 
 .article-chunk--plain p+p {

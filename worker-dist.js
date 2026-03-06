@@ -13249,6 +13249,10 @@ async function handleRSS(targetUrl) {
       const mediaMatch = /<media:content[^>]+url="([^"]+)"/i.exec(itemXml);
       if (mediaMatch) image = mediaMatch[1];
       if (!image) {
+        const thumbMatch = /<media:thumbnail[^>]+url="([^"]+)"/i.exec(itemXml);
+        if (thumbMatch) image = thumbMatch[1];
+      }
+      if (!image) {
         const encMatch = /<enclosure[^>]+url="([^"]+)"[^>]+type="image\//i.exec(itemXml);
         if (encMatch) image = encMatch[1];
       }
