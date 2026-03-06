@@ -13215,6 +13215,11 @@ var DOMParser = class _DOMParser {
 var { parse: parse4 } = JSON;
 
 // node_modules/linkedom/esm/index.js
+var parseHTML = (html, globals = null) => new DOMParser().parseFromString(
+  html,
+  "text/html",
+  globals
+).defaultView;
 function Document4() {
   illegalConstructor();
 }
@@ -13278,7 +13283,7 @@ async function handleArticle(targetUrl) {
     let html = await res.text();
     html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
     html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
-    const document = new DOMParser().parseFromString(html, "text/html");
+    const { document } = parseHTML(html);
     const reader = new import_readability.Readability(document);
     const article = reader.parse();
     if (!article) throw new Error("Readability could not parse the content.");

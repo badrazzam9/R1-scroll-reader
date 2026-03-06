@@ -1,5 +1,5 @@
 import { Readability } from '@mozilla/readability';
-import { DOMParser } from 'linkedom';
+import { parseHTML } from 'linkedom';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -77,9 +77,8 @@ async function handleArticle(targetUrl) {
         html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
         html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
 
-        // Parse using linkedom (Cloudflare Workers compatible DOM)
-        // Note: linkedom's DOMParser.parseFromString returns the document directly
-        const document = new DOMParser().parseFromString(html, 'text/html');
+        // Parse using linkedom parseHTML (returns {document} compatible with Readability)
+        const { document } = parseHTML(html);
 
         // Run Readability
         const reader = new Readability(document);
