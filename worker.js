@@ -44,11 +44,17 @@ async function handleRSS(targetUrl) {
                 if (encMatch) image = encMatch[1];
             }
 
-            // 3. Try parsing an img tag from description
+            // 3. Try parsing an img tag from description (crucial for Yahoo/NPR)
             const desc = getTag('description');
             if (!image && desc) {
+                // Look for src="..." or src='...'
                 const imgMatch = /<img[^>]+src=["']([^"']+)["']/i.exec(desc);
                 if (imgMatch) image = imgMatch[1];
+            }
+            // 4. Fallback search for any url ending in jpg/png/webp inside the block
+            if (!image) {
+                const rawMatch = /https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)/i.exec(itemXml);
+                if (rawMatch) image = rawMatch[0];
             }
 
             items.push({

@@ -643,8 +643,9 @@ async function searchNews(query) {
 
   try {
     showLoading('Searching across sources…');
-    // Use Yahoo News RSS as search backend to avoid Google's redirect walls that block Readability on the worker
-    const searchUrl = `https://news.yahoo.com/rss/search?p=${encodeURIComponent(q)}&_cb=${Date.now()}`;
+    // Ensure strict Yahoo formatting. Ex: search?p=Iraq
+    const encodedQ = encodeURIComponent(q).replace(/%20/g, '+');
+    const searchUrl = `https://news.yahoo.com/rss/search?p=${encodedQ}&_cb=${Date.now()}`;
     const data = await apiWithRetry('/top', { url: searchUrl });
     hideLoading();
     const filteredCards = (data.items || []).filter(c => !c.url || !isPaywalled(c.url));
