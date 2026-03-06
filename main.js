@@ -49,7 +49,7 @@ const REGIONS_VISIBLE = 6;
 
 /* ── DOM refs ── */
 const els = {
-  navBack: document.getElementById('navBack'),
+  navRefresh: document.getElementById('navRefresh'),
   navHome: document.getElementById('navHome'),
   viewLabel: document.getElementById('viewLabel'),
   fontTools: document.getElementById('fontTools'),
@@ -232,7 +232,6 @@ function setView(view, { push = true } = {}) {
 
   const labels = { home: 'Home', cards: 'News Cards', article: 'Article' };
   els.viewLabel.textContent = labels[view] || 'Home';
-  els.navBack.disabled = view === 'home';
 
   if (push) history.pushState({ view }, '', `#${view}`);
 }
@@ -685,7 +684,10 @@ async function loadRecent() {
 
 /* ═══ UI bindings ═══ */
 function bindUi() {
-  els.navBack.addEventListener('click', goBackView);
+  els.navRefresh.addEventListener('click', () => {
+    showLoading('Refreshing...');
+    location.reload();
+  });
   els.navHome.addEventListener('click', goHomeView);
 
   els.searchForm.addEventListener('submit', (e) => {
@@ -717,11 +719,7 @@ function bindUi() {
     }
   });
 
-  // Breaking news nav arrows
-  const breakPrev = document.getElementById('breakPrev');
-  const breakNext = document.getElementById('breakNext');
-  if (breakPrev) breakPrev.addEventListener('click', () => scrollBreaking(-1));
-  if (breakNext) breakNext.addEventListener('click', () => scrollBreaking(1));
+  // Breaking news nav arrows removed per user request
 
   // Font controls
   els.fontDown.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); changeArticleFont(-0.08); });

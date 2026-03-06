@@ -5,12 +5,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=288, initial-scale=1.0, user-scalable=no" />
   <title>R1 News Fetcher</title>
-  <link rel="stylesheet" href="./styles.css?v=42" />
+  <link rel="stylesheet" href="./styles.css?v=43" />
 </head>
 
 <body>
   <nav class="chrome-nav">
-    <button id="navBack" class="nav-btn" title="Back" aria-label="Back">←</button>
+    <button id="navRefresh" class="nav-btn" title="Refresh" aria-label="Refresh">↻</button>
     <button id="navHome" class="nav-btn" title="Home" aria-label="Home">⌂</button>
     <span id="viewLabel" class="view-label">Home</span>
     <div id="fontTools" class="font-tools hidden" aria-label="Font size controls">
@@ -39,11 +39,6 @@
 
       <section class="card breaking-section">
         <h3>⚡ Breaking News</h3>
-        <div class="breaking-nav">
-          <button id="breakPrev" class="nav-btn breaking-arrow" title="Previous">◀</button>
-          <span id="breakCounter" class="break-counter"></span>
-          <button id="breakNext" class="nav-btn breaking-arrow" title="Next">▶</button>
-        </div>
         <div id="breakingDeck" class="deck breaking-wheel"></div>
         <div id="breakingLoading" class="microcopy" style="text-align:center;padding:.3rem 0">Loading…</div>
       </section>
@@ -67,7 +62,7 @@
 
   <section id="status" class="status" aria-live="polite"></section>
 
-  <script src="./main.js?v=42"></script>
+  <script src="./main.js?v=43"></script>
 </body>
 
 </html>
