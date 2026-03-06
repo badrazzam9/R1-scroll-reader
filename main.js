@@ -32,22 +32,22 @@ function isPaywalled(url) {
 /* ── Region / country RSS feeds ── */
 const REGIONS = [
   // Top 6 always visible
-  { label: '🇺🇸 US', url: 'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml' },
-  { label: '🇬🇧 UK', url: 'https://feeds.bbci.co.uk/news/uk/rss.xml' },
-  { label: '🇪🇺 Europe', url: 'https://feeds.bbci.co.uk/news/world/europe/rss.xml' },
-  { label: '🌍 Africa', url: 'https://feeds.bbci.co.uk/news/world/africa/rss.xml' },
-  { label: '🌏 Asia', url: 'https://feeds.bbci.co.uk/news/world/asia/rss.xml' },
-  { label: '🏛️ Middle East', url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml' },
+  { label: '🇺🇸 US', url: 'https://news.yahoo.com/rss/us' },
+  { label: '🇬🇧 UK', url: 'https://news.yahoo.com/rss/search?p=UK+News' },
+  { label: '🇪🇺 Europe', url: 'https://news.yahoo.com/rss/search?p=Europe+News' },
+  { label: '🌍 Africa', url: 'https://news.yahoo.com/rss/search?p=Africa+News' },
+  { label: '🌏 Asia', url: 'https://news.yahoo.com/rss/search?p=Asia+News' },
+  { label: '🏛️ Middle East', url: 'https://news.yahoo.com/rss/search?p=Middle+East+News' },
   // Collapsed by default
-  { label: '🇦🇺 Australia', url: 'https://feeds.bbci.co.uk/news/world/australia/rss.xml' },
-  { label: '🌎 L. America', url: 'https://feeds.bbci.co.uk/news/world/latin_america/rss.xml' },
-  { label: '🇮🇳 India', url: 'https://feeds.bbci.co.uk/news/world/asia/india/rss.xml' },
-  { label: '🇨🇳 China', url: 'https://feeds.bbci.co.uk/news/world/asia/china/rss.xml' },
-  { label: '💼 Business', url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
-  { label: '🔬 Sci/Tech', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml' },
-  { label: '⚽ Sport', url: 'https://feeds.bbci.co.uk/sport/rss.xml' },
-  { label: '🎬 Entertain', url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml' },
-  { label: '🏥 Health', url: 'https://feeds.bbci.co.uk/news/health/rss.xml' },
+  { label: '🇦🇺 Australia', url: 'https://news.yahoo.com/rss/search?p=Australia+News' },
+  { label: '🌎 L. America', url: 'https://news.yahoo.com/rss/search?p=Latin+America+news' },
+  { label: '🇮🇳 India', url: 'https://news.yahoo.com/rss/search?p=India+News' },
+  { label: '🇨🇳 China', url: 'https://news.yahoo.com/rss/search?p=China+News' },
+  { label: '💼 Business', url: 'https://news.yahoo.com/rss/business' },
+  { label: '🔬 Sci/Tech', url: 'https://news.yahoo.com/rss/tech' },
+  { label: '⚽ Sport', url: 'https://sports.yahoo.com/rss/' },
+  { label: '🎬 Entertain', url: 'https://news.yahoo.com/rss/entertainment' },
+  { label: '🏥 Health', url: 'https://news.yahoo.com/rss/health' },
 ];
 const REGIONS_VISIBLE = 6;
 
@@ -720,14 +720,16 @@ async function loadRecent() {
 
 /* ═══ UI bindings ═══ */
 function bindUi() {
-  els.navRefresh.addEventListener('click', async () => {
-    // Unregister SW to destroy R1's aggressive local background cache
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const r of regs) await r.unregister();
-    }
-    // Hard refresh with URL cache buster to fetch brand-new HTML/JS payload
-    window.location.href = window.location.pathname + '?v=' + Date.now();
+  els.navRefresh.addEventListener('click', () => {
+    goHomeView();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Clear out search input and trigger fresh fetch
+    els.searchInput.value = '';
+    els.regionSelect.selectedIndex = 0;
+
+    // Soft reload the breaking news inline
+    loadBreakingNewsInline();
   });
   els.navHome.addEventListener('click', goHomeView);
 
