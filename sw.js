@@ -3,15 +3,15 @@
    Network-first for API, cache-first for shell
    ═══════════════════════════════════════════════ */
 
-const SHELL_CACHE = 'r1-news-shell-v36';
+const SHELL_CACHE = 'r1-news-shell-v37';
 const ARTICLE_CACHE = 'r1-news-articles-v1';
 const MAX_CACHED_ARTICLES = 10;
 
 const SHELL_FILES = [
     './',
     './index.html',
-    './main.js?v=36',
-    './styles.css'
+    './main.js?v=37',
+    './styles.css?v=37'
 ];
 
 /* ── Install: cache app shell ── */
@@ -41,13 +41,13 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
     // API requests: network-first, cache article responses
-    if (url.pathname.includes('/api/read')) {
+    if (url.pathname.includes('/article')) {
         event.respondWith(networkFirstArticle(event.request));
         return;
     }
 
     // Other API requests: network only (don't cache search/news results)
-    if (url.pathname.includes('/api/')) {
+    if (url.href.includes('workers.dev')) {
         event.respondWith(fetch(event.request));
         return;
     }
