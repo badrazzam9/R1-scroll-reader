@@ -3,7 +3,11 @@
    ═══════════════════════════════════════════════ */
 
 const API_BASE = (localStorage.getItem('r1_api_base') || 'https://r1-scroll-reader-worker.swordandscroll.workers.dev').replace(/\/$/, '');
-const BREAKING_NEWS_URL = 'https://feeds.bbci.co.uk/news/world/rss.xml';
+const BREAKING_FEEDS = [
+  'https://news.yahoo.com/rss/world',
+  'https://feeds.bbci.co.uk/news/world/rss.xml',
+  'https://feeds.npr.org/1001/rss.xml'
+];
 
 const RECENT_SEARCH_KEY = 'r1_recent_searches_v1';
 const RECENT_ARTICLE_KEY = 'r1_recent_articles_v1';
@@ -374,23 +378,51 @@ function scrollBreaking(direction) {
 async function loadBreakingNewsInline() {
   try {
     els.breakingLoading.classList.remove('hidden');
-    els.breakingLoading.textContent = 'Loading…';
-    const cacheBustedUrl = BREAKING_NEWS_URL + (BREAKING_NEWS_URL.includes('?') ? '&' : '?') + '_cb=' + Date.now();
-    const data = await api('/top', { url: cacheBustedUrl });
+    els.breakingLoading.textContent = 'Aggregating global sources…';
+
+    // Concurrently fetch from Yahoo, BBC, and NPR to guarantee rapid breaking updates
+    const promises = BREAKING_FEEDS.map(feedUrl => {
+      const cacheBustedUrl = feedUrl + (feedUrl.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+      return api('/top', { url: cacheBustedUrl }).catch(() => null);
+    });
+
+    const results = await Promise.all(promises);
     els.breakingLoading.classList.add('hidden');
 
-    // Filter out paywalled sources
-    const allCards = data.items || [];
-    // Normalize: worker returns `link` not `url`, and image as {url} object
-    state.breakingCards = allCards
-      .map(c => ({ ...c, url: c.url || c.link }))
-      .filter(c => !c.url || !isPaywalled(c.url));
+    let allCards = [];
+    results.forEach(res => {
+      if (res && res.items) allCards = allCards.concat(res.items);
+    });
 
-    if (!state.breakingCards.length) {
+    if (!allCards.length) {
       renderEmptyState(els.breakingDeck, '📡', 'No breaking news right now');
       return;
     }
 
+    // Normalize, drop paywalls
+    allCards = allCards
+      .map(c => ({ ...c, url: c.url || c.link }))
+      .filter(c => c.url && !isPaywalled(c.url));
+
+    // Sort strictly by published date so the absolute newest wire stories always appear first
+    allCards.sort((a, b) => {
+      const tA = new Date(a.published).getTime() || 0;
+      const tB = new Date(b.published).getTime() || 0;
+      return tB - tA; // Newest first
+    });
+
+    // Deduplicate exact same wire stories across networks using Title/Content heuristics
+    const uniqueCards = [];
+    const seenTitles = new Set();
+    for (const card of allCards) {
+      const simpleTitle = (card.title || '').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 30);
+      if (!seenTitles.has(simpleTitle) && uniqueCards.length < 20) {
+        seenTitles.add(simpleTitle);
+        uniqueCards.push(card);
+      }
+    }
+
+    state.breakingCards = uniqueCards;
     els.breakingDeck.innerHTML = '';
     state.breakingIndex = 0;
     state.breakingCards.forEach((card, index) => {
