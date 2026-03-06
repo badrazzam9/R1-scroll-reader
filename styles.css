@@ -191,8 +191,6 @@ input {
   /* Expand to fill remaining height */
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  /* Contains the wheel */
   margin-top: 0;
   border: none;
   padding: 0;
@@ -259,7 +257,7 @@ input {
   perspective: 500px;
   perspective-origin: center center;
   transform-style: preserve-3d;
-  overflow: hidden;
+  /* Removed overflow: hidden because it clips out 3D transformed child elements */
 }
 
 .card-counter {

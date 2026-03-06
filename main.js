@@ -632,9 +632,12 @@ function renderErrorCard(message, retryFn) {
 /* ═══ #13: Health check + resume ═══ */
 async function healthCheck() {
   try {
-    await api('/health', null, 'GET');
+    // Direct fetch to avoid canceling other api() requests
+    await fetch(`${API_BASE}/health`, { method: 'GET', signal: AbortSignal.timeout(10000) });
   } catch (error) {
-    setStatus(`API unavailable: ${error.message}`, { persist: true });
+    if (error.name !== 'AbortError') {
+      setStatus(`API unavailable: ${error.message}`, { persist: true });
+    }
   }
 }
 
@@ -778,7 +781,7 @@ function initR1Hardware() {
 /* ═══ Service Worker registration & cache busting ═══ */
 function registerSW() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=32').then(reg => {
+    navigator.serviceWorker.register('./sw.js?v=33').then(reg => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
