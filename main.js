@@ -643,9 +643,9 @@ async function searchNews(query) {
 
   try {
     showLoading('Searching across sources…');
-    // Ensure strict Yahoo formatting. Ex: search?p=Iraq
+    // Switch to Bing News RSS for incredibly accurate global search results
     const encodedQ = encodeURIComponent(q).replace(/%20/g, '+');
-    const searchUrl = `https://news.yahoo.com/rss/search?p=${encodedQ}&_cb=${Date.now()}`;
+    const searchUrl = `https://www.bing.com/news/search?q=${encodedQ}&format=rss&_cb=${Date.now()}`;
     const data = await apiWithRetry('/top', { url: searchUrl });
     hideLoading();
     const filteredCards = (data.items || []).filter(c => !c.url || !isPaywalled(c.url));

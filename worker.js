@@ -7,6 +7,15 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+function safeDecode(str) {
+    if (!str) return '';
+    try {
+        return decodeURIComponent(str.replace(/\+/g, ' '));
+    } catch {
+        return str.replace(/%20/g, ' ').replace(/\+/g, ' ');
+    }
+}
+
 async function handleRSS(targetUrl) {
     try {
         const res = await fetch(targetUrl);
@@ -58,10 +67,10 @@ async function handleRSS(targetUrl) {
             }
 
             items.push({
-                title: getTag('title') || 'No Title',
+                title: safeDecode(getTag('title')) || 'No Title',
                 link: getTag('link') || targetUrl,
                 published: getTag('pubDate') || new Date().toISOString(),
-                summary: desc.replace(/<[^>]+>/g, '').substring(0, 200),
+                summary: safeDecode(desc.replace(/<[^>]+>/g, '').substring(0, 200)),
                 image: image ? { url: image } : null
             });
         }
