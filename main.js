@@ -380,7 +380,10 @@ async function loadBreakingNewsInline() {
 
     // Filter out paywalled sources
     const allCards = data.items || [];
-    state.breakingCards = allCards.filter(c => !c.url || !isPaywalled(c.url));
+    // Normalize: worker returns `link` not `url`, and image as {url} object
+    state.breakingCards = allCards
+      .map(c => ({ ...c, url: c.url || c.link }))
+      .filter(c => !c.url || !isPaywalled(c.url));
 
     if (!state.breakingCards.length) {
       renderEmptyState(els.breakingDeck, '📡', 'No breaking news right now');
@@ -435,12 +438,15 @@ function createCardElement(card, index) {
   title.textContent = card.title || `Story ${index + 1}`;
 
   const snippet = document.createElement('p');
-  snippet.textContent = card.snippet || 'Tap to open full story.';
+  snippet.textContent = card.snippet || card.summary || 'Tap to open full story.';
 
   content.append(title, snippet);
   article.appendChild(content);
 
-  const openCard = () => { if (card.url) readArticle(card.url, card.image?.url); };
+  const openCard = () => {
+    const articleUrl = card.url || card.link;
+    if (articleUrl) readArticle(articleUrl, card.image?.url);
+  };
   article.addEventListener('click', openCard);
   article.addEventListener('touchend', (ev) => { ev.preventDefault(); openCard(); }, { passive: false });
 

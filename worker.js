@@ -78,7 +78,8 @@ async function handleArticle(targetUrl) {
         html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
 
         // Parse using linkedom (Cloudflare Workers compatible DOM)
-        const { document } = new DOMParser().parseFromString(html, 'text/html');
+        // Note: linkedom's DOMParser.parseFromString returns the document directly
+        const document = new DOMParser().parseFromString(html, 'text/html');
 
         // Run Readability
         const reader = new Readability(document);
