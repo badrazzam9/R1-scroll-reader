@@ -136,7 +136,8 @@ async function api(path, payload, method = 'POST') {
   const timeout = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const response = await fetch(`${API_BASE}${path}`, {
+    const requestUrl = `${API_BASE}${path}${path.includes('?') ? '&' : '?'}t=${Date.now()}`;
+    const response = await fetch(requestUrl, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: method === 'GET' ? undefined : JSON.stringify(payload || {}),
