@@ -659,7 +659,12 @@ function renderErrorCard(message, retryFn) {
 async function healthCheck() {
   try {
     // Direct fetch to avoid canceling other api() requests
-    await fetch(`${API_BASE}/health`, { method: 'GET', signal: AbortSignal.timeout(10000) });
+    // Custom timeout implementation since AbortSignal.timeout() is not supported on older R1 WebViews
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    await fetch(`${API_BASE}/health`, { method: 'GET', signal: controller.signal });
+    clearTimeout(timeoutId);
   } catch (error) {
     if (error.name !== 'AbortError') {
       setStatus(`API unavailable: ${error.message}`, { persist: true });
