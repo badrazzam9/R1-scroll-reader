@@ -572,14 +572,8 @@ function renderArticle(data, fallbackImageUrl) {
     el.style.maxWidth = '100%';
     el.style.boxSizing = 'border-box';
   });
-  // Handle images specifically — force them to be responsive
-  block.querySelectorAll('img').forEach(img => {
-    img.style.maxWidth = '100%';
-    img.style.height = 'auto';
-    img.style.maxHeight = '100px';
-    img.style.objectFit = 'contain';
-    img.style.display = 'block';
-  });
+  // Remove ALL inline images, pictures, and figures from the article content (user only wants the single top-level lead image)
+  block.querySelectorAll('img, picture, figure').forEach(el => el.remove());
   els.articleSections.appendChild(block);
 }
 
