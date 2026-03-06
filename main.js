@@ -375,11 +375,11 @@ async function loadBreakingNewsInline() {
   try {
     els.breakingLoading.classList.remove('hidden');
     els.breakingLoading.textContent = 'Loading…';
-    const data = await api('/api/news', { url: BREAKING_NEWS_URL });
+    const data = await api('/top', { url: BREAKING_NEWS_URL });
     els.breakingLoading.classList.add('hidden');
 
     // Filter out paywalled sources
-    const allCards = data.cards || [];
+    const allCards = data.items || [];
     state.breakingCards = allCards.filter(c => !c.url || !isPaywalled(c.url));
 
     if (!state.breakingCards.length) {
@@ -556,10 +556,10 @@ function renderArticle(data, fallbackImageUrl) {
 async function fetchNewsFromUrl(url, label = 'Source News') {
   try {
     showLoading('Fetching news cards…');
-    const data = await apiWithRetry('/api/news', { url });
+    const data = await apiWithRetry('/top', { url });
     hideLoading();
     // Filter out paywalled cards
-    const filteredCards = (data.cards || []).filter(c => !c.url || !isPaywalled(c.url));
+    const filteredCards = (data.items || []).filter(c => !c.url || !isPaywalled(c.url));
     renderCards(filteredCards, label || data.domain || 'News');
   } catch (error) {
     hideLoading();
