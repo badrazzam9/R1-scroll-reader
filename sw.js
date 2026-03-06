@@ -3,14 +3,14 @@
    Network-first for API, cache-first for shell
    ═══════════════════════════════════════════════ */
 
-const SHELL_CACHE = 'r1-news-shell-v34';
+const SHELL_CACHE = 'r1-news-shell-v36';
 const ARTICLE_CACHE = 'r1-news-articles-v1';
 const MAX_CACHED_ARTICLES = 10;
 
 const SHELL_FILES = [
     './',
     './index.html',
-    './main.js?v=34',
+    './main.js?v=36',
     './styles.css'
 ];
 

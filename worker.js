@@ -1,5 +1,5 @@
-import { Readability } from 'https://esm.sh/@mozilla/readability@0.5.0';
-import { DOMParser } from 'https://esm.sh/linkedom@0.16.8';
+import { Readability } from '@mozilla/readability';
+import { DOMParser } from 'linkedom';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
