@@ -555,10 +555,31 @@ function renderArticle(data, fallbackImageUrl) {
 
   const block = document.createElement('section');
   block.className = 'article-chunk article-chunk--plain animate-in';
-  // Sanitise inline scripts before inserting
-  block.innerHTML = htmlContent
+  // Sanitise: remove scripts, styles, and ALL inline width/height/style attributes
+  let cleanHtml = htmlContent
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/\s+width\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/\s+height\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/\s+style\s*=\s*["'][^"']*["']/gi, '');
+  block.innerHTML = cleanHtml;
+
+  // Post-insert DOM cleanup: remove any remaining size attributes from all elements
+  block.querySelectorAll('*').forEach(el => {
+    el.removeAttribute('width');
+    el.removeAttribute('height');
+    el.removeAttribute('style');
+    el.style.maxWidth = '100%';
+    el.style.boxSizing = 'border-box';
+  });
+  // Handle images specifically — force them to be responsive
+  block.querySelectorAll('img').forEach(img => {
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.style.maxHeight = '100px';
+    img.style.objectFit = 'contain';
+    img.style.display = 'block';
+  });
   els.articleSections.appendChild(block);
 }
 
