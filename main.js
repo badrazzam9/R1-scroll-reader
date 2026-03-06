@@ -688,10 +688,14 @@ async function loadRecent() {
 
 /* ═══ UI bindings ═══ */
 function bindUi() {
-  els.navRefresh.addEventListener('click', () => {
-    goHomeView();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    loadBreakingNewsInline();
+  els.navRefresh.addEventListener('click', async () => {
+    // Unregister SW to destroy R1's aggressive local background cache
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) await r.unregister();
+    }
+    // Hard refresh with URL cache buster to fetch brand-new HTML/JS payload
+    window.location.href = window.location.pathname + '?v=' + Date.now();
   });
   els.navHome.addEventListener('click', goHomeView);
 
