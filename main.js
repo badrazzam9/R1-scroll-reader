@@ -248,9 +248,8 @@ function goBackView() {
 }
 
 function scrollCards(direction) {
-  const cards = [...els.deck.querySelectorAll('.news-card')];
-  if (!cards.length) return;
-  state.activeCardIndex = Math.max(0, Math.min(cards.length - 1, state.activeCardIndex + direction));
+  if (!state.cards.length) return;
+  state.activeCardIndex = Math.max(0, Math.min(state.cards.length - 1, state.activeCardIndex + direction));
   applyWheelTransforms();
 }
 
@@ -550,6 +549,15 @@ function renderCards(cards = [], sourceLabel = 'News') {
   }
 
   cards.forEach((card, index) => els.deck.appendChild(createCardElement(card, index)));
+
+  // Add swipe support to the generic card deck for the 3D wheel
+  let touchStartY = 0;
+  els.deck.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+  els.deck.addEventListener('touchend', e => {
+    const touchY = e.changedTouches[0].clientY;
+    if (touchStartY - touchY > 30) scrollCards(1);
+    else if (touchY - touchStartY > 30) scrollCards(-1);
+  }, { passive: true });
 
   setView('cards');
   applyWheelTransforms();

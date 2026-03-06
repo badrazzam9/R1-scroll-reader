@@ -232,7 +232,6 @@ input {
   flex: 1;
   height: auto;
   min-height: 0;
-  margin-top: 15vh;
 }
 
 .breaking-nav {
@@ -278,7 +277,7 @@ input {
 .deck {
   position: relative;
   height: 150px;
-  margin: .1rem;
+  margin: 15vh .1rem .1rem;
   perspective: 500px;
   perspective-origin: center center;
   transform-style: preserve-3d;
@@ -286,10 +285,17 @@ input {
 
 .card-counter {
   text-align: center;
-  color: var(--muted);
+  color: #ffced3;
+  background: #111826;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: .3rem .6rem;
   font-size: .64rem;
-  padding: .25rem 0 .15rem;
   letter-spacing: .3px;
+  width: max-content;
+  margin: .5rem auto -14vh;
+  position: relative;
+  z-index: 50;
 }
 
 /* ── News card (wheel item) ── */
