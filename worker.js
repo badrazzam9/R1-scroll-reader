@@ -1,5 +1,5 @@
-import { Readability } from '@mozilla/readability';
-import { DOMParser } from 'linkedom';
+import { Readability } from 'npm:@mozilla/readability';
+import { DOMParser } from 'npm:linkedom';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
