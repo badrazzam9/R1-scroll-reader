@@ -531,24 +531,28 @@ function renderArticle(data, fallbackImageUrl) {
     els.articleImage.classList.add('hidden');
   }
 
-  if (data.canonicalUrl) {
-    els.articleSource.href = data.canonicalUrl;
+  if (data.url) {
+    els.articleSource.href = data.url;
     els.articleSource.classList.remove('hidden');
   } else {
     els.articleSource.classList.add('hidden');
   }
 
   els.articleSections.innerHTML = '';
-  const parts = (data.sections || []).filter(Boolean);
 
-  if (!parts.length) {
+  // Readability returns data.content (HTML) and data.textContent (plain text)
+  const htmlContent = data.content || '';
+  if (!htmlContent) {
     renderEmptyState(els.articleSections, '📄', 'Could not extract article text.');
     return;
   }
 
   const block = document.createElement('section');
   block.className = 'article-chunk article-chunk--plain animate-in';
-  block.innerHTML = parts.map(part => `<p>${escapeHtml(part)}</p>`).join('');
+  // Sanitise inline scripts before inserting
+  block.innerHTML = htmlContent
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
   els.articleSections.appendChild(block);
 }
 
@@ -573,10 +577,11 @@ async function searchNews(query) {
 
   try {
     showLoading('Searching across sources…');
-    const data = await apiWithRetry('/api/search', { query: q });
+    // Use Google News RSS as search backend since worker only supports /top
+    const searchUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en&gl=US&ceid=US:en`;
+    const data = await apiWithRetry('/top', { url: searchUrl });
     hideLoading();
-    // Filter out paywalled cards
-    const filteredCards = (data.cards || []).filter(c => !c.url || !isPaywalled(c.url));
+    const filteredCards = (data.items || []).filter(c => !c.url || !isPaywalled(c.url));
     renderCards(filteredCards, `Search: ${q}`);
   } catch (error) {
     hideLoading();
@@ -591,12 +596,12 @@ async function readArticle(url, cardImageUrl) {
   }
   try {
     showLoading('Opening article…');
-    const data = await apiWithRetry('/api/read', { url });
+    const data = await apiWithRetry('/article', { url });
     hideLoading();
 
     // Check if content is too short (likely paywall)
-    const sections = (data.sections || []).filter(Boolean);
-    if (sections.length <= 1 && sections.join('').length < 100) {
+    const textContent = data.textContent || data.content || '';
+    if (textContent.length < 100) {
       setStatus('⚠️ Article may be behind a paywall — limited content available.', { persist: true });
     }
 
@@ -604,7 +609,7 @@ async function readArticle(url, cardImageUrl) {
     setView('article');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     applyArticleFontScale();
-    setStatus(`Opened article from ${data.domain || 'source'}.`);
+    setStatus(`Opened article from ${new URL(url).hostname || 'source'}.`);
   } catch (error) {
     hideLoading();
     setStatus(error.message, { persist: true });
