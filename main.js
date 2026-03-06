@@ -374,7 +374,8 @@ async function loadBreakingNewsInline() {
   try {
     els.breakingLoading.classList.remove('hidden');
     els.breakingLoading.textContent = 'Loading…';
-    const data = await api('/top', { url: BREAKING_NEWS_URL });
+    const cacheBustedUrl = BREAKING_NEWS_URL + (BREAKING_NEWS_URL.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+    const data = await api('/top', { url: cacheBustedUrl });
     els.breakingLoading.classList.add('hidden');
 
     // Filter out paywalled sources
@@ -474,7 +475,7 @@ function applyWheelTransforms() {
     // Each slot is 55° around the drum
     const angle = offset * 55;
     // Radius of the cylinder — determines how far back cards go
-    const radius = 120;
+    const radius = 100;
     // Y position on the cylinder surface
     const y = Math.sin(angle * Math.PI / 180) * radius;
     // Z depth into the screen
@@ -580,7 +581,8 @@ function renderArticle(data, fallbackImageUrl) {
 async function fetchNewsFromUrl(url, label = 'Source News') {
   try {
     showLoading('Fetching news cards…');
-    const data = await apiWithRetry('/top', { url });
+    const cacheBustedUrl = url + (url.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+    const data = await apiWithRetry('/top', { url: cacheBustedUrl });
     hideLoading();
     // Filter out paywalled cards
     const filteredCards = (data.items || []).filter(c => !c.url || !isPaywalled(c.url));
@@ -598,7 +600,7 @@ async function searchNews(query) {
   try {
     showLoading('Searching across sources…');
     // Use Yahoo News RSS as search backend to avoid Google's redirect walls that block Readability on the worker
-    const searchUrl = `https://news.yahoo.com/rss/search?p=${encodeURIComponent(q)}`;
+    const searchUrl = `https://news.yahoo.com/rss/search?p=${encodeURIComponent(q)}&_cb=${Date.now()}`;
     const data = await apiWithRetry('/top', { url: searchUrl });
     hideLoading();
     const filteredCards = (data.items || []).filter(c => !c.url || !isPaywalled(c.url));
@@ -616,7 +618,8 @@ async function readArticle(url, cardImageUrl) {
   }
   try {
     showLoading('Opening article…');
-    const data = await apiWithRetry('/article', { url });
+    const cacheBustedUrl = url + (url.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+    const data = await apiWithRetry('/article', { url: cacheBustedUrl });
     hideLoading();
 
     // Check if content is too short (likely paywall)
