@@ -214,7 +214,7 @@ input {
   /* Expand to fill remaining height */
   display: flex;
   flex-direction: column;
-  margin-top: 0;
+  margin-top: 20vh;
   border: none;
   padding: 0;
   background: transparent;

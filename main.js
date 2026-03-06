@@ -597,8 +597,8 @@ async function searchNews(query) {
 
   try {
     showLoading('Searching across sources…');
-    // Use Google News RSS as search backend since worker only supports /top
-    const searchUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en&gl=US&ceid=US:en`;
+    // Use Yahoo News RSS as search backend to avoid Google's redirect walls that block Readability on the worker
+    const searchUrl = `https://news.yahoo.com/rss/search?p=${encodeURIComponent(q)}`;
     const data = await apiWithRetry('/top', { url: searchUrl });
     hideLoading();
     const filteredCards = (data.items || []).filter(c => !c.url || !isPaywalled(c.url));
@@ -685,8 +685,9 @@ async function loadRecent() {
 /* ═══ UI bindings ═══ */
 function bindUi() {
   els.navRefresh.addEventListener('click', () => {
-    showLoading('Refreshing...');
-    location.reload();
+    goHomeView();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    loadBreakingNewsInline();
   });
   els.navHome.addEventListener('click', goHomeView);
 
