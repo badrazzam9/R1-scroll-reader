@@ -28,7 +28,7 @@ body {
   display: flex;
   align-items: center;
   gap: .35rem;
-  padding: .45rem .55rem;
+  padding: .3rem .4rem;
   border-bottom: 1px solid var(--border);
   background: rgba(15, 18, 24, .94);
 }
@@ -71,7 +71,7 @@ body {
 .app-shell {
   max-width: 250px;
   margin: 0 auto;
-  padding: .3rem 0 .9rem;
+  padding: .1rem 0;
 }
 
 .view {
@@ -82,15 +82,14 @@ body {
   display: none !important;
 }
 
-/* ── Hero ── */
 .hero {
-  margin: .35rem .35rem .1rem;
+  margin: .1rem .2rem .1rem;
 }
 
 .hero h1 {
   margin: 0;
-  font-size: 1rem;
-  line-height: 1.2;
+  font-size: .9rem;
+  line-height: 1.1;
 }
 
 /* ── Card panel ── */
@@ -135,8 +134,8 @@ input {
 /* ── Compact Top Bar ── */
 .top-bar {
   display: flex;
-  gap: .4rem;
-  margin-bottom: .6rem;
+  gap: .2rem;
+  margin-bottom: .3rem;
   flex-shrink: 0;
 }
 
@@ -147,7 +146,7 @@ input {
 
 .search-input {
   width: 100%;
-  padding: .5rem .6rem;
+  padding: .35rem .5rem;
   border-radius: 9px;
   border: 1px solid var(--border);
   background: #11151e;
@@ -163,12 +162,12 @@ input {
 
 .region-select {
   flex: 1;
-  padding: .5rem .6rem;
+  padding: .35rem .5rem;
   border-radius: 9px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: .8rem;
+  font-size: .75rem;
   font-family: inherit;
   outline: none;
   cursor: pointer;
@@ -199,8 +198,8 @@ input {
 
 .breaking-section h3 {
   flex-shrink: 0;
-  margin: 0 0 .3rem 0;
-  font-size: .85rem;
+  margin: 0 0 .1rem 0;
+  font-size: .75rem;
   color: #ffced3;
 }
 
@@ -215,7 +214,7 @@ input {
   align-items: center;
   justify-content: center;
   gap: .4rem;
-  padding: .2rem 0 .1rem;
+  padding: 0 0 .1rem;
 }
 
 .breaking-arrow {
@@ -252,7 +251,7 @@ input {
 /* ── 3D Wheel Deck ── */
 .deck {
   position: relative;
-  height: 220px;
+  height: 140px;
   margin: .2rem;
   perspective: 500px;
   perspective-origin: center center;

@@ -781,7 +781,7 @@ function initR1Hardware() {
 /* ═══ Service Worker registration & cache busting ═══ */
 function registerSW() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=33').then(reg => {
+    navigator.serviceWorker.register('./sw.js?v=34').then(reg => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
