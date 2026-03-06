@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { JSDOM } from "https://esm.sh/jsdom@22.1.0";
+import { JSDOM } from "npm:jsdom@22.1.0";
 import { Readability } from "https://esm.sh/@mozilla/readability@0.5.0";
 import { parseFeed } from "https://deno.land/x/rss@0.5.8/mod.ts";
 
