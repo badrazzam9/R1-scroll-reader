@@ -90,7 +90,8 @@ const state = {
   regionsExpanded: false,
   breakingCards: [],
   breakingIndex: 0,
-  currentAbort: null
+  currentAbort: null,
+  currentFeedContext: null
 };
 
 /* ═══ Status / Loading ═══ */
@@ -612,6 +613,7 @@ function renderArticle(data, fallbackImageUrl) {
 
 /* ═══ API actions ═══ */
 async function fetchNewsFromUrl(url, label = 'Source News') {
+  state.currentFeedContext = { type: 'url', url, label };
   try {
     showLoading('Fetching news cards…');
     const cacheBustedUrl = url + (url.includes('?') ? '&' : '?') + '_cb=' + Date.now();
@@ -629,6 +631,7 @@ async function fetchNewsFromUrl(url, label = 'Source News') {
 async function searchNews(query) {
   const q = String(query || '').trim();
   if (!q) return setStatus('Type a search term first.');
+  state.currentFeedContext = { type: 'search', query: q };
 
   try {
     showLoading('Searching across sources…');
@@ -721,15 +724,23 @@ async function loadRecent() {
 /* ═══ UI bindings ═══ */
 function bindUi() {
   els.navRefresh.addEventListener('click', () => {
-    goHomeView();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Clear out search input and trigger fresh fetch
-    els.searchInput.value = '';
-    els.regionSelect.selectedIndex = 0;
+    if (state.view === 'cards' && state.currentFeedContext) {
+      if (state.currentFeedContext.type === 'url') {
+        fetchNewsFromUrl(state.currentFeedContext.url, state.currentFeedContext.label);
+      } else if (state.currentFeedContext.type === 'search') {
+        searchNews(state.currentFeedContext.query);
+      }
+    } else {
+      goHomeView();
+      // Clear out search input and trigger fresh fetch
+      els.searchInput.value = '';
+      els.regionSelect.selectedIndex = 0;
 
-    // Soft reload the breaking news inline
-    loadBreakingNewsInline();
+      // Soft reload the breaking news inline
+      loadBreakingNewsInline();
+    }
   });
   els.navHome.addEventListener('click', goHomeView);
 
